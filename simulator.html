@@ -6793,6 +6793,90 @@ function _fbarHide(){
   const fb = document.getElementById('ce-fbar');
   if(fb) fb.style.display = 'none';
 }
+
+function _safeEvalExpression(expr){
+  const src = String(expr || '').replace(/\s+/g, '');
+  if(!src) return {ok:false, error:'수식 형식 오류'};
+
+  const tokens = src.match(/\d*\.?\d+|[()+\-*/]/g);
+  if(!tokens || tokens.join('') !== src) return {ok:false, error:'수식 형식 오류'};
+
+  let pos = 0;
+  function peek(){ return tokens[pos]; }
+  function consume(){ return tokens[pos++]; }
+
+  function parseExpression(){
+    let left = parseTerm();
+    while(peek()==='+' || peek()==='-'){
+      const op = consume();
+      const right = parseTerm();
+      left = op==='+' ? (left + right) : (left - right);
+    }
+    return left;
+  }
+
+  function parseTerm(){
+    let left = parseFactor();
+    while(peek()==='*' || peek()==='/'){
+      const op = consume();
+      const right = parseFactor();
+      if(op === '/' && right === 0) throw new Error('0으로 나눌 수 없습니다');
+      left = op==='*' ? (left * right) : (left / right);
+    }
+    return left;
+  }
+
+  function parseFactor(){
+    const tk = peek();
+    if(tk === '-'){
+      consume();
+      return -parseFactor();
+    }
+    if(tk === '('){
+      consume();
+      const value = parseExpression();
+      if(peek() !== ')') throw new Error('괄호 형식 오류');
+      consume();
+      return value;
+    }
+    if(tk && /^\d*\.?\d+$/.test(tk)){
+      consume();
+      return Number(tk);
+    }
+    throw new Error('수식 형식 오류');
+  }
+
+  try{
+    const value = parseExpression();
+    if(pos !== tokens.length) return {ok:false, error:'수식 형식 오류'};
+    if(!Number.isFinite(value)) return {ok:false, error:'수식 형식 오류'};
+    return {ok:true, value};
+  } catch(e){
+    return {ok:false, error:e.message || '수식 형식 오류'};
+  }
+}
+
+function _parseCellInput(raw){
+  const normalized = String(raw ?? '').replace(/,/g, '').trim();
+  if(normalized === '' || normalized === '-') return {ok:true, empty:true, value:null};
+
+  const isFormula = normalized.startsWith('=');
+  const payload = isFormula ? normalized.slice(1).trim() : normalized;
+  if(!payload) return {ok:false, error:'수식 형식 오류'};
+  if(!/^[0-9+\-*/().\s]+$/.test(payload)) return {ok:false, error:'수식 형식 오류'};
+
+  if(isFormula){
+    const evalResult = _safeEvalExpression(payload);
+    if(!evalResult.ok) return evalResult;
+    return {ok:true, value:evalResult.value};
+  }
+
+  if(!/^-?(?:\d+\.?\d*|\d*\.\d+)$/.test(payload)){
+    return {ok:false, error:'숫자 또는 =수식 형태로 입력하세요'};
+  }
+  return {ok:true, value:Number(payload)};
+}
+
 function _ceClearCurrent(){
   if(!_ceTarget) return;
   const {sheet,item,yr,mon} = _ceTarget;
@@ -6868,15 +6952,17 @@ function _commitInline(silent){
   if(!_ceActive || !_ceTarget) return;
   const {sheet, item, yr, mon, td} = _ceTarget;
   const inp = td ? td.querySelector('.ce-inline-inp') : null;
-  const raw = inp ? inp.value.replace(/,/g,'').trim() : '';
+  const raw = inp ? inp.value : '';
+  const parsed = _parseCellInput(raw);
 
-  if(raw === '' || raw === '-'){
-    ceSet(sheet, item, yr, mon, null);
-  } else {
-    const val = parseFloat(raw);
-    if(isNaN(val)){ _cancelInline(); return; }
-    ceSet(sheet, item, yr, mon, val);
+  if(!parsed.ok){
+    alert(parsed.error || '수식 형식 오류');
+    if(inp){ inp.focus(); inp.select(); }
+    return;
   }
+
+  ceSet(sheet, item, yr, mon, parsed.empty ? null : parsed.value);
+
   _ceActive = false;
   _ceTarget = null;
   _fbarHide();
@@ -6921,10 +7007,10 @@ function closeCE(){
 }
 function applyCE(){
   if(!_ceTarget) return;
-  const raw = document.getElementById('ce_inp').value.replace(/,/g,'');
-  const val = parseFloat(raw);
-  if(isNaN(val)){ alert('올바른 숫자를 입력하세요'); return; }
-  ceSet(_ceTarget.sheet, _ceTarget.item, _ceTarget.yr, _ceTarget.mon, val);
+  const inp = document.getElementById('ce_inp');
+  const parsed = _parseCellInput(inp.value);
+  if(!parsed.ok){ alert(parsed.error || '수식 형식 오류'); return; }
+  ceSet(_ceTarget.sheet, _ceTarget.item, _ceTarget.yr, _ceTarget.mon, parsed.empty ? null : parsed.value);
   closeCE();
   renderAllSheets();
 }
