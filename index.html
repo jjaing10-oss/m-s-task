@@ -8490,12 +8490,11 @@ function generateMonthlyAnalysis(){
 }
 
 // 월별 코멘트 저장
-function saveMonthlyComment(itemKey, monthIdx, text){
+function saveMonthlyComment(compositeKey, text){
   let comments = {};
   try { comments = JSON.parse(localStorage.getItem('ktms_monthly_comments')||'{}'); } catch(_){}
-  const k = itemKey+'_'+monthIdx;
-  if(text && text.trim()) comments[k] = text.trim();
-  else delete comments[k];
+  if(text && text.trim()) comments[compositeKey] = text.trim();
+  else delete comments[compositeKey];
   localStorage.setItem('ktms_monthly_comments', JSON.stringify(comments));
 }
 
@@ -8664,7 +8663,7 @@ function renderExecReport(){
           '<td style="padding:4px 8px;text-align:right;font-weight:700;color:#d97706">×'+a.ratio+'</td>'+
           '<td style="padding:4px 8px;font-size:10px;color:var(--t2)">'+a.reason+'</td>'+
           '<td style="padding:2px 4px"><input type="text" value="'+userComment.replace(/"/g,'&quot;')+'" '+
-            'onchange="saveMonthlyComment(\''+ck.replace(/'/g,"\\'")+"',"+a.monthIdx+',this.value)" '+
+            'onchange="saveMonthlyComment(\''+ck.replace(/'/g,"\\'")+"',this.value)\" "+
             'style="width:100%;padding:3px 6px;border:1px solid var(--bd);border-radius:4px;font-size:10px;font-family:inherit" '+
             'placeholder="코멘트 입력..."></td>'+
         '</tr>';
@@ -24628,6 +24627,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(typeof updateActualBadge==='function') updateActualBadge();
     if(typeof _updateActualStatus==='function') _updateActualStatus();
   }, 200);
+});
+
+// ── 엑셀 드롭다운 외부 클릭 닫힘 ──
+document.addEventListener('click', function(e){
+  document.querySelectorAll('.hdr-r div[style*="position:absolute"]').forEach(function(dd){
+    if(dd.style.display==='block' && !dd.parentElement.contains(e.target)){
+      dd.style.display='none';
+    }
+  });
 });
 
 // ── ⌨️ 키보드 단축키 ──────────────────────────────────
