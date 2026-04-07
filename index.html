@@ -8566,23 +8566,35 @@ function renderExecReport(){
     <table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:11px">
       <thead><tr style="background:#0c4a6e;color:#fff">
         <th style="padding:6px 10px;text-align:left;border-radius:6px 0 0 0">항목</th>
+        <th style="padding:6px 10px;text-align:right;opacity:.7">24년</th>
+        <th style="padding:6px 10px;text-align:right;opacity:.7">25년</th>
         <th style="padding:6px 10px;text-align:right">26E</th>
-        <th style="padding:6px 10px;text-align:right">27E</th>
+        <th style="padding:6px 10px;text-align:right;font-weight:800">27E</th>
         <th style="padding:6px 10px;text-align:right;border-radius:0 6px 0 0">YoY</th>
       </tr></thead>
       <tbody>
-      ${items.filter(i=>['rev','prod','pol','mgmt','cogs','labor','mkt','rent','dep','opex','op','dist_op'].includes(i.key)).map((item,idx)=>{
+      ${(()=>{
+        const _hm={rev:[H_TOT.rev[2],H_TOT.rev[3]],prod:[H_TOT.prod[2],H_TOT.prod[3]],
+          pol:[H_TOT.pol[2],H_TOT.pol[3]],mgmt:[H_TOT.mgmt[2],H_TOT.mgmt[3]],
+          cogs:[H_TOT.cogs[2],H_TOT.cogs[3]],labor:[H_TOT.labor[2],H_TOT.labor[3]],
+          mkt:[H_TOT.mkt[2],H_TOT.mkt[3]],rent:[H_TOT.rent[2],H_TOT.rent[3]],
+          dep:[H_TOT.dep[2],H_TOT.dep[3]],opex:[H_TOT.opex[2],H_TOT.opex[3]],
+          op:[H_TOT.op[2],H_TOT.op[3]],dist_op:[H_DIST.op[2],H_DIST.op[3]]};
+        return items.filter(i=>['rev','prod','pol','mgmt','cogs','labor','mkt','rent','dep','opex','op','dist_op'].includes(i.key)).map((item,idx)=>{
         const yoy = pct(item.v27,item.v26);
         const isProfit = item.key==='op'||item.key==='dist_op';
         const bg = idx%2===0?'#fff':'#f0f9ff';
         const isBold = item.key==='rev'||item.key==='op';
+        const h=_hm[item.key]||[0,0];
         return '<tr style="background:'+bg+'">'+
           '<td style="padding:5px 10px;'+(isBold?'font-weight:700':'')+'">'+item.label+'</td>'+
-          '<td style="padding:5px 10px;text-align:right;color:var(--t3)">'+fmtB(item.v26)+'</td>'+
+          '<td style="padding:5px 10px;text-align:right;color:var(--t3);font-size:10px">'+(h[0]?fmtB(h[0]):'—')+'</td>'+
+          '<td style="padding:5px 10px;text-align:right;color:var(--t3);font-size:10px">'+(h[1]?fmtB(h[1]):'—')+'</td>'+
+          '<td style="padding:5px 10px;text-align:right;color:var(--t2)">'+fmtB(item.v26)+'</td>'+
           '<td style="padding:5px 10px;text-align:right;font-weight:600">'+fmtB(item.v27)+'</td>'+
           '<td style="padding:5px 10px;text-align:right;color:'+(parseFloat(yoy)>=0?(isProfit?'#059669':'#dc2626'):(isProfit?'#dc2626':'#059669'))+'">'+yoy+'%</td>'+
         '</tr>';
-      }).join('')}
+      }).join('');})()}
       </tbody>
     </table>
   </div>`;
@@ -18201,13 +18213,17 @@ function _renderVerifyInner(el){
     const srcLabel=yearLabel==='27E'?'소스 26E':'소스 26E';
     const simLabel=yearLabel==='27E'?'예측 27E':'시뮬 26E';
     let t=`<table class="tbl" style="font-size:11px"><thead><tr>
-      <th style="min-width:200px;text-align:left">항목 <span style="font-size:9px;color:var(--t3)">⚡ 클릭하면 편집탭 이동</span></th>
-      <th>25년실적</th>
+      <th style="min-width:180px;text-align:left">항목 <span style="font-size:9px;color:var(--t3)">⚡ 클릭→편집탭</span></th>
+      <th style="color:var(--t3);font-size:10px">22년</th>
+      <th style="color:var(--t3);font-size:10px">23년</th>
+      <th style="color:var(--t3);font-size:10px">24년</th>
+      <th>25년</th>
       <th style="background:rgba(59,130,246,.07)">${srcLabel}</th>
       <th style="background:rgba(16,185,129,.07)">${simLabel}</th>
       <th>차이</th><th>오차율</th><th>전년대비</th><th style="font-size:10px;color:var(--t3)">원인</th></tr></thead><tbody>`;
     for(const r of rows){
       const sim=xInt(r.sim||0), src=xInt(r.src||0), prev=xInt(r.h25||0);
+      const h22=xInt(r.h22||0), h23=xInt(r.h23||0), h24=xInt(r.h24||0);
       const df=sim-src, tol=r.tol||50;
       const dc=statCls(df,tol);
       const yoy=yoyPct(sim,prev);
@@ -18228,6 +18244,9 @@ function _renderVerifyInner(el){
       t+=`<tr class="${r.cls||'r-sub2'}" ${rowClick} style="${rowBg}${hasDiff&&!isOp?';border-left:2px solid '+(Math.abs(df)>tol*3?'var(--rd2)':'var(--or2)'):''}">
         <td style="${r.indent?'padding-left:'+(r.indent*12+8)+'px':''}${isOp?';font-weight:700;color:var(--gn2)':''}${isMaj&&!isOp?';font-weight:600':''}">
           ${r.l}${r.lnk?`<span class="lnk">🔗</span>`:''}${clickable?` <span style="font-size:9px;color:var(--or2)">⚡</span>`:''}</td>
+        <td style="color:var(--t3);font-size:10px">${h22?cellFmt2(h22):'—'}</td>
+        <td style="color:var(--t3);font-size:10px">${h23?cellFmt2(h23):'—'}</td>
+        <td style="color:var(--t3);font-size:10px">${h24?cellFmt2(h24):'—'}</td>
         <td class="eg-cell" data-editable="0" data-sim-value="${Math.round(prev||0)}" style="color:var(--t3)">${cellFmt2(prev||0)}</td>
         <td class="eg-cell" data-editable="0" data-sim-value="${Math.round(src)}" style="background:rgba(59,130,246,.04)">${cellFmt2(src)}</td>
         <td class="eg-cell ${hasDiff?'':''}${r.hk?'eg-editable-hint':''}"
@@ -18252,67 +18271,70 @@ function _renderVerifyInner(el){
   }
 
   function telRows(){
+    const H=H_TEL;
     return [
-      {l:'I. 매출',sim:t.rev_ann,src:V.tel_rev,h25:H_TEL.rev[3],cls:'r-tot',tol:500,lnk:1,tab:'wireless',anchor:'w_pu',cause:'CAPA×대당매출+수수료 합산. 무선탭 단가 확인'},
-      {l:'  상품매출',sim:t.prod_ann,src:V.tel_prod,h25:H_TEL.prod[3],cls:'r-sub',tol:500,lnk:1,indent:1,tab:'wireless',anchor:'w_pu',cause:'대당매출단가×비IoT CAPA 역산'},
-      {l:'  정책수수료',sim:t.pol_ann,src:V.tel_pol,h25:H_TEL.pol[3],cls:'r-sub',tol:1500,lnk:1,indent:1,tab:'wireless',anchor:'w_pu_pol',cause:'무선+유선 정책수수료 합산'},
-      {l:'  관리수수료',sim:t.mgmt_ann,src:V.tel_mgmt,h25:H_TEL.mgmt[3],cls:'r-sub',tol:800,lnk:1,indent:1},
-      {l:'  기타수수료',sim:t.etc_ann,src:V.tel_etc,h25:H_TEL.etc[3],cls:'r-sub',tol:200,lnk:1,indent:1},
-      {l:'II. 매출원가',sim:t.cogs_ann,src:V.tel_cogs,h25:H_TEL.cogs[3],cls:'r-tot',tol:500,lnk:1,tab:'wireless',anchor:'w_cu',cause:'대당원가단가×비IoT CAPA. 무선탭 대당원가 확인'},
-      {l:'III. 매출총이익',sim:t.gp_ann,src:V.tel_gp,h25:H_TEL.gp[3],cls:'r-gp',tol:500},
-      {l:'IV. 판관비',sim:t.sga_ann,src:V.tel_sga,h25:H_TEL.sga[3],cls:'r-sga',tol:500},
-      {l:'  인건비',sim:t.labor_ann,src:V.tel_labor,h25:H_TEL.labor[3],cls:'r-sub',tol:200,lnk:1,indent:1,tab:'labor',anchor:'lb_raise',cause:'임단협 인상률·인원수·복리후생비 확인'},
-      {l:'  마케팅비용',sim:t.mkt_ann,src:V.tel_mkt,h25:H_TEL.mkt[3],cls:'r-sub',tol:200,lnk:1,indent:1,tab:'wireless',anchor:'w_sc_ann',cause:'판매수수료+판촉비+광고 합산'},
-      {l:'    판매수수료',sim:t.sc_ann,src:V.tel_sc,h25:H_TEL.sc[3],cls:'r-sub2',tol:100,lnk:1,indent:2,tab:'wireless',anchor:'w_sc_ann',cause:'무선 판매수수료 단가 확인'},
-      {l:'    판촉비',sim:t.sp_ann,src:V.tel_sp,h25:H_TEL.sp[3],cls:'r-sub3',tol:100,lnk:1,indent:3,tab:'wireless',anchor:'w_sp',cause:'무선 판촉비 단가 확인'},
-      {l:'    광고',sim:t.adv_ann,src:V.tel_adv,h25:H_TEL.adv[3],cls:'r-sub3',tol:30,lnk:1,indent:3},
-      {l:'  임차관리비',sim:t.rent_ann,src:V.tel_rent,h25:H_TEL.rent[3],cls:'r-sub',tol:200,lnk:1,indent:1,tab:'infra',anchor:'if_building',cause:'건물임차료+수도광열비. 인프라탭 매장수 확인'},
-      {l:'  감가상각비',sim:t.dep_ann,src:V.tel_dep,h25:H_TEL.dep[3],cls:'r-sub',tol:100,lnk:1,indent:1,tab:'depre',anchor:'dp_tang_base',cause:'기존자산 상각기저+신규CAPEX 합산'},
-      {l:'  기타운영비',sim:t.opex_ann,src:V.tel_opex,h25:H_TEL.opex[3],cls:'r-sub',tol:500,lnk:1,indent:1,tab:'opex',anchor:'ox_mtg_base',cause:'지급수수료+회의비+운반비 등 기타비용'},
-      {l:'★ V. 영업이익',sim:t.op_ann,src:V.tel_op,h25:H_TEL.op[3],cls:'r-op',tol:50,isOp:1},
+      {l:'I. 매출',sim:t.rev_ann,src:V.tel_rev,h22:H.rev[0],h23:H.rev[1],h24:H.rev[2],h25:H.rev[3],cls:'r-tot',tol:500,lnk:1,tab:'wireless',anchor:'w_pu',cause:'CAPA×대당매출+수수료 합산. 무선탭 단가 확인'},
+      {l:'  상품매출',sim:t.prod_ann,src:V.tel_prod,h22:H.prod[0],h23:H.prod[1],h24:H.prod[2],h25:H.prod[3],cls:'r-sub',tol:500,lnk:1,indent:1,tab:'wireless',anchor:'w_pu',cause:'대당매출단가×비IoT CAPA 역산'},
+      {l:'  정책수수료',sim:t.pol_ann,src:V.tel_pol,h22:H.pol[0],h23:H.pol[1],h24:H.pol[2],h25:H.pol[3],cls:'r-sub',tol:1500,lnk:1,indent:1,tab:'wireless',anchor:'w_pu_pol',cause:'무선+유선 정책수수료 합산'},
+      {l:'  관리수수료',sim:t.mgmt_ann,src:V.tel_mgmt,h22:H.mgmt[0],h23:H.mgmt[1],h24:H.mgmt[2],h25:H.mgmt[3],cls:'r-sub',tol:800,lnk:1,indent:1},
+      {l:'  기타수수료',sim:t.etc_ann,src:V.tel_etc,h22:H.etc[0],h23:H.etc[1],h24:H.etc[2],h25:H.etc[3],cls:'r-sub',tol:200,lnk:1,indent:1},
+      {l:'II. 매출원가',sim:t.cogs_ann,src:V.tel_cogs,h22:H.cogs[0],h23:H.cogs[1],h24:H.cogs[2],h25:H.cogs[3],cls:'r-tot',tol:500,lnk:1,tab:'wireless',anchor:'w_cu',cause:'대당원가단가×비IoT CAPA. 무선탭 대당원가 확인'},
+      {l:'III. 매출총이익',sim:t.gp_ann,src:V.tel_gp,h22:H.gp[0],h23:H.gp[1],h24:H.gp[2],h25:H.gp[3],cls:'r-gp',tol:500},
+      {l:'IV. 판관비',sim:t.sga_ann,src:V.tel_sga,h22:H.sga[0],h23:H.sga[1],h24:H.sga[2],h25:H.sga[3],cls:'r-sga',tol:500},
+      {l:'  인건비',sim:t.labor_ann,src:V.tel_labor,h22:H.labor[0],h23:H.labor[1],h24:H.labor[2],h25:H.labor[3],cls:'r-sub',tol:200,lnk:1,indent:1,tab:'labor',anchor:'lb_raise',cause:'임단협 인상률·인원수·복리후생비 확인'},
+      {l:'  마케팅비용',sim:t.mkt_ann,src:V.tel_mkt,h22:H.mkt[0],h23:H.mkt[1],h24:H.mkt[2],h25:H.mkt[3],cls:'r-sub',tol:200,lnk:1,indent:1,tab:'wireless',anchor:'w_sc_ann',cause:'판매수수료+판촉비+광고 합산'},
+      {l:'    판매수수료',sim:t.sc_ann,src:V.tel_sc,h22:H.sc[0],h23:H.sc[1],h24:H.sc[2],h25:H.sc[3],cls:'r-sub2',tol:100,lnk:1,indent:2,tab:'wireless',anchor:'w_sc_ann',cause:'무선 판매수수료 단가 확인'},
+      {l:'    판촉비',sim:t.sp_ann,src:V.tel_sp,h22:H.sp[0],h23:H.sp[1],h24:H.sp[2],h25:H.sp[3],cls:'r-sub3',tol:100,lnk:1,indent:3,tab:'wireless',anchor:'w_sp',cause:'무선 판촉비 단가 확인'},
+      {l:'    광고',sim:t.adv_ann,src:V.tel_adv,h22:H.adv[0],h23:H.adv[1],h24:H.adv[2],h25:H.adv[3],cls:'r-sub3',tol:30,lnk:1,indent:3},
+      {l:'  임차관리비',sim:t.rent_ann,src:V.tel_rent,h22:H.rent[0],h23:H.rent[1],h24:H.rent[2],h25:H.rent[3],cls:'r-sub',tol:200,lnk:1,indent:1,tab:'infra',anchor:'if_building',cause:'건물임차료+수도광열비. 인프라탭 매장수 확인'},
+      {l:'  감가상각비',sim:t.dep_ann,src:V.tel_dep,h22:H.dep[0],h23:H.dep[1],h24:H.dep[2],h25:H.dep[3],cls:'r-sub',tol:100,lnk:1,indent:1,tab:'depre',anchor:'dp_tang_base',cause:'기존자산 상각기저+신규CAPEX 합산'},
+      {l:'  기타운영비',sim:t.opex_ann,src:V.tel_opex,h22:H.opex[0],h23:H.opex[1],h24:H.opex[2],h25:H.opex[3],cls:'r-sub',tol:500,lnk:1,indent:1,tab:'opex',anchor:'ox_mtg_base',cause:'지급수수료+회의비+운반비 등 기타비용'},
+      {l:'★ V. 영업이익',sim:t.op_ann,src:V.tel_op,h22:H.op[0],h23:H.op[1],h24:H.op[2],h25:H.op[3],cls:'r-op',tol:50,isOp:1},
     ];
   }
 
   function distRows(){
+    const D=H_DIST;
     return [
-      {l:'I. 매출',sim:d.rev_ann,src:V.dist_rev,h25:H_DIST.rev[3],cls:'r-tot',tol:300,lnk:1,tab:'distplatform',anchor:'dp_out',cause:'굿바이/시연폰/코코넛 매출 합산'},
-      {l:'  상품서비스매출',sim:dp.prod,src:55556,h25:H_DIST.prod[3],cls:'r-sub',tol:200,indent:1},
-      {l:'  정책수수료',sim:dp.pol,src:3130,h25:H_DIST.pol[3],cls:'r-sub',tol:100,indent:1},
-      {l:'  기타수수료',sim:dp.etc,src:1095,h25:H_DIST.etc[3],cls:'r-sub',tol:100,indent:1},
-      {l:'II. 매출원가',sim:d.cogs_ann,src:V.dist_cogs,h25:H_DIST.cogs[3],cls:'r-tot',tol:300,lnk:1},
-      {l:'  상품원가',sim:dp.prod_cogs,src:15825,h25:0,cls:'r-sub2',tol:100,indent:1},
-      {l:'  매각원가',sim:dp.sale_cogs,src:29985,h25:0,cls:'r-sub2',tol:100,indent:1},
-      {l:'III. 매출총이익',sim:d.gp_ann,src:V.dist_gp,h25:H_DIST.gp[3],cls:'r-gp',tol:300},
-      {l:'IV. 판관비',sim:d.sga_ann,src:V.dist_sga,h25:(H_DIST.gp[3]-H_DIST.op[3]),cls:'r-sga',tol:200},
-      {l:'  인건비',sim:d.labor_ann,src:V.dist_labor,h25:H_DIST.labor[3],cls:'r-sub',tol:100,lnk:1,indent:1,tab:'distplatform',anchor:'dp_out',cause:'유통플랫폼 인건비 직접 조정'},
-      {l:'  임차료',sim:dp.rent,src:175,h25:H_DIST.rent[3],cls:'r-sub2',tol:50,indent:1},
-      {l:'  지급수수료',sim:dp.fee,src:3445,h25:2978,cls:'r-sub2',tol:100,indent:1,tab:'distplatform',anchor:'dp_out',cause:'유통플랫폼 지급수수료'},
-      {l:'  판촉비/회의비',sim:dp.promo,src:928,h25:612,cls:'r-sub2',tol:50,indent:1},
-      {l:'  기타운영비(지급수수료+기타+운반)',sim:Math.round((dp.fee||0)+(dp.opex||0)+(dp.transport||0)),src:Math.round((PLAN_DIST_FULL.fee.ann)+(PLAN_DIST_FULL.opex.ann)+(PLAN_DIST_FULL.transport.ann)),h25:0,cls:'r-sub2',tol:100,indent:1,tab:'distplatform',anchor:'dp_out',cause:'통신 기타운영비(34,719)+유통(4,070)=전사(38,791) 일치 항목'},
-      {l:'  감가상각비',sim:d.dep_ann,src:V.dist_dep,h25:H_DIST.dep[3],cls:'r-sub2',tol:30,indent:1},
-      {l:'★ V. 영업이익',sim:d.op_ann,src:V.dist_op,h25:H_DIST.op[3],cls:'r-op',tol:20,isOp:1},
+      {l:'I. 매출',sim:d.rev_ann,src:V.dist_rev,h22:D.rev[0],h23:D.rev[1],h24:D.rev[2],h25:D.rev[3],cls:'r-tot',tol:300,lnk:1,tab:'distplatform',anchor:'dp_out',cause:'굿바이/시연폰/코코넛 매출 합산'},
+      {l:'  상품서비스매출',sim:dp.prod,src:55556,h22:D.prod[0],h23:D.prod[1],h24:D.prod[2],h25:D.prod[3],cls:'r-sub',tol:200,indent:1},
+      {l:'  정책수수료',sim:dp.pol,src:3130,h22:D.pol[0],h23:D.pol[1],h24:D.pol[2],h25:D.pol[3],cls:'r-sub',tol:100,indent:1},
+      {l:'  기타수수료',sim:dp.etc,src:1095,h22:D.etc[0],h23:D.etc[1],h24:D.etc[2],h25:D.etc[3],cls:'r-sub',tol:100,indent:1},
+      {l:'II. 매출원가',sim:d.cogs_ann,src:V.dist_cogs,h22:D.cogs[0],h23:D.cogs[1],h24:D.cogs[2],h25:D.cogs[3],cls:'r-tot',tol:300,lnk:1},
+      {l:'  상품원가',sim:dp.prod_cogs,src:15825,h22:D.cogs_p[0],h23:D.cogs_p[1],h24:D.cogs_p[2],h25:D.cogs_p[3],cls:'r-sub2',tol:100,indent:1},
+      {l:'  매각원가',sim:dp.sale_cogs,src:29985,h22:D.cogs_s[0],h23:D.cogs_s[1],h24:D.cogs_s[2],h25:D.cogs_s[3],cls:'r-sub2',tol:100,indent:1},
+      {l:'III. 매출총이익',sim:d.gp_ann,src:V.dist_gp,h22:D.gp[0],h23:D.gp[1],h24:D.gp[2],h25:D.gp[3],cls:'r-gp',tol:300},
+      {l:'IV. 판관비',sim:d.sga_ann,src:V.dist_sga,h22:D.sga[0],h23:D.sga[1],h24:D.sga[2],h25:(D.gp[3]-D.op[3]),cls:'r-sga',tol:200},
+      {l:'  인건비',sim:d.labor_ann,src:V.dist_labor,h22:D.labor[0],h23:D.labor[1],h24:D.labor[2],h25:D.labor[3],cls:'r-sub',tol:100,lnk:1,indent:1,tab:'distplatform',anchor:'dp_out',cause:'유통플랫폼 인건비 직접 조정'},
+      {l:'  임차료',sim:dp.rent,src:175,h22:D.rent[0],h23:D.rent[1],h24:D.rent[2],h25:D.rent[3],cls:'r-sub2',tol:50,indent:1},
+      {l:'  지급수수료',sim:dp.fee,src:3445,h22:D.fee[0],h23:D.fee[1],h24:D.fee[2],h25:D.fee[3],cls:'r-sub2',tol:100,indent:1,tab:'distplatform',anchor:'dp_out',cause:'유통플랫폼 지급수수료'},
+      {l:'  판촉비/회의비',sim:dp.promo,src:928,h22:D.promo[0],h23:D.promo[1],h24:D.promo[2],h25:D.promo[3],cls:'r-sub2',tol:50,indent:1},
+      {l:'  기타운영비(지급수수료+기타+운반)',sim:Math.round((dp.fee||0)+(dp.opex||0)+(dp.transport||0)),src:Math.round((PLAN_DIST_FULL.fee.ann)+(PLAN_DIST_FULL.opex.ann)+(PLAN_DIST_FULL.transport.ann)),h22:0,h23:0,h24:0,h25:0,cls:'r-sub2',tol:100,indent:1,tab:'distplatform',anchor:'dp_out',cause:'통신 기타운영비(34,719)+유통(4,070)=전사(38,791) 일치 항목'},
+      {l:'  감가상각비',sim:d.dep_ann,src:V.dist_dep,h22:D.dep[0],h23:D.dep[1],h24:D.dep[2],h25:D.dep[3],cls:'r-sub2',tol:30,indent:1},
+      {l:'★ V. 영업이익',sim:d.op_ann,src:V.dist_op,h22:D.op[0],h23:D.op[1],h24:D.op[2],h25:D.op[3],cls:'r-op',tol:20,isOp:1},
     ];
   }
 
   function corpRows(){
+    const C=H_TOT;
     return [
-      {l:'I. 매출',sim:s.rev_ann,src:V.rev,h25:H_TOT.rev[3],cls:'r-tot',tol:500,lnk:1},
-      {l:'  상품매출',sim:t.prod_ann+dp.prod,src:V.product,h25:H_TOT.prod[3],cls:'r-sub',tol:500,indent:1},
-      {l:'  정책수수료',sim:s.pol_ann,src:V.pol_fee,h25:H_TOT.pol[3],cls:'r-sub',tol:300,indent:1},
-      {l:'  관리수수료',sim:s.mgmt_ann,src:V.mgmt_fee,h25:H_TOT.mgmt[3],cls:'r-sub',tol:300,indent:1},
-      {l:'  기타수수료',sim:s.etc_ann,src:V.etc_fee,h25:H_TOT.etc[3],cls:'r-sub',tol:300,indent:1},
-      {l:'II. 매출원가',sim:s.cogs_ann,src:V.cogs,h25:H_TOT.cogs[3],cls:'r-tot',tol:500,lnk:1},
-      {l:'III. 매출총이익',sim:s.gp_ann,src:V.gp,h25:H_TOT.gp[3],cls:'r-gp',tol:500},
-      {l:'IV. 판관비',sim:s.sga_ann,src:V.sga,h25:H_TOT.sga[3],cls:'r-sga',tol:500},
-      {l:'  인건비',sim:s.labor_ann,src:V.labor,h25:H_TOT.labor[3],cls:'r-sub',tol:200,lnk:1,indent:1,tab:'labor',anchor:'lb_raise',cause:'통신+유통 인건비 합산'},
-      {l:'  마케팅비용',sim:s.mkt_ann,src:V.mkt,h25:H_TOT.mkt[3],cls:'r-sub',tol:200,lnk:1,indent:1},
-      {l:'    판매수수료',sim:t.sc_ann,src:V.sales_comm,h25:H_TOT.sc[3],cls:'r-sub2',tol:100,indent:2},
-      {l:'    판촉비',sim:t.sp_ann,src:V.promo,h25:H_TOT.sp[3],cls:'r-sub2',tol:100,indent:2},
-      {l:'    광고',sim:t.adv_ann,src:V.adv,h25:H_TOT.adv[3],cls:'r-sub2',tol:30,indent:2},
-      {l:'  임차관리비',sim:s.rent_ann,src:V.rent,h25:H_TOT.rent[3],cls:'r-sub',tol:100,lnk:1,indent:1,tab:'infra',anchor:'if_building',cause:'통신 임차+유통 임차 합산'},
-      {l:'  감가상각비',sim:s.dep_ann,src:V.dep,h25:H_TOT.dep[3],cls:'r-sub',tol:100,lnk:1,indent:1},
-      {l:'  기타운영비',sim:s.opex_ann,src:V.opex,h25:H_TOT.opex[3],cls:'r-sub',tol:300,lnk:1,indent:1,tab:'opex',anchor:'ox_mtg_base',cause:'지급수수료+회의비+기타 합산'},
-      {l:'★ V. 영업이익',sim:s.op_ann,src:V.op,h25:H_TOT.op[3],cls:'r-op',tol:20,isOp:1},
+      {l:'I. 매출',sim:s.rev_ann,src:V.rev,h22:C.rev[0],h23:C.rev[1],h24:C.rev[2],h25:C.rev[3],cls:'r-tot',tol:500,lnk:1},
+      {l:'  상품매출',sim:t.prod_ann+dp.prod,src:V.product,h22:C.prod[0],h23:C.prod[1],h24:C.prod[2],h25:C.prod[3],cls:'r-sub',tol:500,indent:1},
+      {l:'  정책수수료',sim:s.pol_ann,src:V.pol_fee,h22:C.pol[0],h23:C.pol[1],h24:C.pol[2],h25:C.pol[3],cls:'r-sub',tol:300,indent:1},
+      {l:'  관리수수료',sim:s.mgmt_ann,src:V.mgmt_fee,h22:C.mgmt[0],h23:C.mgmt[1],h24:C.mgmt[2],h25:C.mgmt[3],cls:'r-sub',tol:300,indent:1},
+      {l:'  기타수수료',sim:s.etc_ann,src:V.etc_fee,h22:C.etc[0],h23:C.etc[1],h24:C.etc[2],h25:C.etc[3],cls:'r-sub',tol:300,indent:1},
+      {l:'II. 매출원가',sim:s.cogs_ann,src:V.cogs,h22:C.cogs[0],h23:C.cogs[1],h24:C.cogs[2],h25:C.cogs[3],cls:'r-tot',tol:500,lnk:1},
+      {l:'III. 매출총이익',sim:s.gp_ann,src:V.gp,h22:C.gp[0],h23:C.gp[1],h24:C.gp[2],h25:C.gp[3],cls:'r-gp',tol:500},
+      {l:'IV. 판관비',sim:s.sga_ann,src:V.sga,h22:C.sga[0],h23:C.sga[1],h24:C.sga[2],h25:C.sga[3],cls:'r-sga',tol:500},
+      {l:'  인건비',sim:s.labor_ann,src:V.labor,h22:C.labor[0],h23:C.labor[1],h24:C.labor[2],h25:C.labor[3],cls:'r-sub',tol:200,lnk:1,indent:1,tab:'labor',anchor:'lb_raise',cause:'통신+유통 인건비 합산'},
+      {l:'  마케팅비용',sim:s.mkt_ann,src:V.mkt,h22:C.mkt[0],h23:C.mkt[1],h24:C.mkt[2],h25:C.mkt[3],cls:'r-sub',tol:200,lnk:1,indent:1},
+      {l:'    판매수수료',sim:t.sc_ann,src:V.sales_comm,h22:C.sc[0],h23:C.sc[1],h24:C.sc[2],h25:C.sc[3],cls:'r-sub2',tol:100,indent:2},
+      {l:'    판촉비',sim:t.sp_ann,src:V.promo,h22:C.sp[0],h23:C.sp[1],h24:C.sp[2],h25:C.sp[3],cls:'r-sub2',tol:100,indent:2},
+      {l:'    광고',sim:t.adv_ann,src:V.adv,h22:C.adv[0],h23:C.adv[1],h24:C.adv[2],h25:C.adv[3],cls:'r-sub2',tol:30,indent:2},
+      {l:'  임차관리비',sim:s.rent_ann,src:V.rent,h22:C.rent[0],h23:C.rent[1],h24:C.rent[2],h25:C.rent[3],cls:'r-sub',tol:100,lnk:1,indent:1,tab:'infra',anchor:'if_building',cause:'통신 임차+유통 임차 합산'},
+      {l:'  감가상각비',sim:s.dep_ann,src:V.dep,h22:C.dep[0],h23:C.dep[1],h24:C.dep[2],h25:C.dep[3],cls:'r-sub',tol:100,lnk:1,indent:1},
+      {l:'  기타운영비',sim:s.opex_ann,src:V.opex,h22:C.opex[0],h23:C.opex[1],h24:C.opex[2],h25:C.opex[3],cls:'r-sub',tol:300,lnk:1,indent:1,tab:'opex',anchor:'ox_mtg_base',cause:'지급수수료+회의비+기타 합산'},
+      {l:'★ V. 영업이익',sim:s.op_ann,src:V.op,h22:C.op[0],h23:C.op[1],h24:C.op[2],h25:C.op[3],cls:'r-op',tol:20,isOp:1},
     ];
   }
 
