@@ -820,6 +820,19 @@ body.edit-mode{background:var(--bg)!important}
   .hdr-r .btn.pri[onclick*="downloadXlsx"] { display:none !important; }
 }
 
+/* ═══ 임원보고서 인쇄 최적화 ═══ */
+@media print {
+  body { background: #fff !important; }
+  .hdr, .primary-tabs, .secondary-wrap, #ce-fbar, .mobile-dl-fab,
+  .sheet:not(#sheet_exec_report) { display: none !important; }
+  #sheet_exec_report { display: block !important; padding: 0 !important; }
+  #sheet_exec_report > div > div:first-child { display: none !important; } /* 버튼 영역 숨김 */
+  #exec_report_content { max-width: 100% !important; font-size: 10pt !important; }
+  #exec_report_content input[type="text"] { border: none !important; font-size: 9pt !important; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  @page { margin: 15mm 12mm; size: A4; }
+}
+
 </style>
 <style>
 .m26-wrap{overflow-x:auto}
@@ -873,7 +886,13 @@ body.edit-mode{background:var(--bg)!important}
     <label class="btn hdr-btn-desktop" style="background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.4);color:var(--ac2);font-weight:700;cursor:pointer" title="월별 실적 엑셀 업로드 (전사 손익계산서)">
       📂 실적 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="handleHeaderActualUpload(this)">
     </label>
-    <button class="btn pri hdr-btn-desktop" onclick="downloadXlsx()">↓ 엑셀 다운로드</button>
+    <div style="position:relative;display:inline-block" class="hdr-btn-desktop">
+      <button class="btn pri" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'" style="min-width:120px">↓ 엑셀 다운로드 ▾</button>
+      <div style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--bd);border-radius:8px;box-shadow:var(--sh-md);z-index:999;min-width:200px;overflow:hidden">
+        <button onclick="downloadXlsx();this.parentElement.style.display='none'" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:12px;font-family:inherit;color:var(--t1)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='none'">📊 기본 다운로드</button>
+        <button onclick="exportEnhancedXlsx();this.parentElement.style.display='none'" style="display:block;width:100%;text-align:left;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:12px;font-family:inherit;color:var(--t1);border-top:1px solid var(--bd)" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='none'">📋 분석 포함 다운로드</button>
+      </div>
+    </div>
     <!-- 모바일 아이콘 버튼 -->
     <button class="hdr-icon-btn" onclick="saveFullSnapshot()" title="저장" aria-label="저장">💾</button>
     <button class="hdr-icon-btn" onclick="switchMain('settings')" title="설정" aria-label="설정">⚙️</button>
@@ -915,6 +934,7 @@ body.edit-mode{background:var(--bg)!important}
     <button class="main-tab" data-tab="ref_sheets" onclick="switchMain('ref_sheets')" style="background:linear-gradient(135deg,#fdf4ff,#f3e8ff);color:#6b21a8;border-color:#c084fc;font-weight:700">📋 참고시트</button>
     <button class="main-tab" data-tab="midterm" onclick="switchMain('midterm')">중기계획</button>
     <button class="main-tab" data-tab="monthly_track" onclick="switchMain('monthly_track')">월별 추적</button>
+    <button class="main-tab" data-tab="exec_report" onclick="switchMain('exec_report')" style="background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border-color:#f59e0b;font-weight:700">📊 임원보고서</button>
   </div>
   <div class="secondary-row" id="group_settings">
     <button class="main-tab" data-tab="settings" onclick="switchMain('settings')">설정 / 롤링</button>
@@ -2476,6 +2496,24 @@ body.edit-mode{background:var(--bg)!important}
       </div>
     </div>
     <div id="pva_out"></div>
+  </div>
+</div>
+
+<!-- ═══ 임원용 보고서 시트 ═══ -->
+<div id="sheet_exec_report" class="sheet sheet-white">
+  <div style="padding:0 4px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      <div>
+        <div style="font-size:18px;font-weight:800;color:var(--t1)">📊 임원용 경영계획 보고서</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">2027년 경영계획 핵심 요약 — 인쇄 및 PDF 저장 가능</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="window.print()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--ac);background:var(--ac);color:#fff;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">🖨️ 인쇄 / PDF</button>
+        <button onclick="copyExecReportText()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--gn2);background:rgba(16,185,129,.12);color:var(--gn2);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">📋 텍스트 복사</button>
+        <button onclick="renderExecReport()" style="padding:6px 14px;border-radius:6px;border:1px solid var(--ac);background:rgba(37,99,235,.08);color:var(--ac);cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">🔄 새로고침</button>
+      </div>
+    </div>
+    <div id="exec_report_out"></div>
   </div>
 </div>
 
@@ -4928,7 +4966,7 @@ function bindExcelPasteSupport(){
 const GROUP_TAB_MAP={
   dashboard:  ['dashboard','monthly_track','plan_vs_actual','midterm'],
   edit:       ['pl','wireless','wireline','distplatform','labor','infra','depre','opex','etcfee','monthly26'],
-  report:     ['verify','plan_vs_actual','ref_sheets','midterm','monthly_track'],
+  report:     ['verify','plan_vs_actual','ref_sheets','midterm','monthly_track','exec_report'],
   settings:   ['settings'],
   forecast27: ['f27_upload','f27_merged26','f27_forecast']
 };
@@ -5025,6 +5063,7 @@ function switchMain(tab){
   if(tab==='f27_upload') safeRender(renderF27Upload,'f27_upload_out','실적업로드 렌더 오류');
   if(tab==='f27_merged26') safeRender(renderF27Merged26,'f27_merged26_out','26년합산 렌더 오류');
   if(tab==='f27_forecast') safeRender(renderF27Forecast,'f27_forecast_out','27년예측 렌더 오류');
+  if(tab==='exec_report') safeRender(renderExecReport,'exec_report_out','임원보고서 렌더 오류');
 }
 
 function renderDashboard(){
@@ -8225,6 +8264,637 @@ function f27ExportExcel(){
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'27년예측');
   XLSX.writeFile(wb,'KT_MS_27년_경영계획_예측.xlsx');
+}
+
+// ============================================================
+// 📊 Phase 1: generateFullAnalysis() — 항목별 분석 엔진
+// ============================================================
+function generateFullAnalysis(){
+  const p = F27?.params || {};
+  const fc = F27?.forecast27 || {};
+  const f27a = k => fc[k] ? fc[k].ann : 0;
+  const p26a = k => {
+    const map = {
+      rev: PLAN_2026_FULL?.rev?.ann||816287, op: PLAN_2026_FULL?.op?.ann||17151,
+      labor: PLAN_2026_FULL?.labor?.ann||147785, mkt: PLAN_2026_FULL?.mkt?.ann||45587,
+      dep: PLAN_2026_FULL?.dep?.ann||6036, opex: PLAN_2026_FULL?.opex?.ann||38791,
+      pol: PLAN_2026_FULL?.pol?.ann||180215, mgmt: PLAN_2026_FULL?.mgmt?.ann||57976,
+      prod: PLAN_2026_FULL?.prod?.ann||530097, rent: PLAN_2026_FULL?.rent?.ann||5474,
+      cogs: PLAN_2026_FULL?.cogs?.ann||555461,
+      dist_rev: PLAN_DIST_FULL?.rev?.ann||59780, dist_op: PLAN_DIST_FULL?.op?.ann||7034,
+      sp: 28060, sc: 16897, adv: 630
+    };
+    return map[k]||0;
+  };
+  const fmt = v => Math.round(v||0).toLocaleString('ko-KR');
+  const fmtB = v => (Math.round((v||0)/100)/10).toFixed(1)+'억';
+  const pct = (a,b) => b ? ((a/b-1)*100).toFixed(1) : '0.0';
+  const capa27 = p.wirelessCapaTotal||680000;
+  const capa26 = 670000;
+  const wg = p.wageGrowth||3, ci = p.cpiGrowth||2, ri = p.rentGrowth||2;
+  const gr = p.revenueGrowth||3;
+  const genHC26=194, salHC26=1940, genIpp26=98.2, salIpp26=39.7;
+  const genHC27=Math.round(genHC26*(1+gr/100*0.3));
+  const salHC27=Math.round(salHC26*(1+gr/100*0.5));
+  const genIpp27=+(genIpp26*(1+wg/100)).toFixed(1);
+  const salIpp27=+(salIpp26*(1+wg/100)).toFixed(1);
+  const storeR26=258, storeR27=Math.round(storeR26*(1+gr/100*0.3));
+  const unitPol26=247338, unitPol27=Math.round(unitPol26*(1+(p.polUnitGrowth||0)/100));
+  const unitRev26=708268, unitRev27=Math.round(unitRev26*(1+gr/100));
+  const unitCogs26=760673, unitCogs27=Math.round(unitCogs26*(1+gr/100*(1-(p.telCogsImprove||0)/100)));
+  const capex27 = p.capex27||2950, depLife = p.depLife||5;
+
+  // 값 가져오기
+  const v = (k) => f27a(k) || 0;
+  const items = [];
+
+  // ── 매출 ──
+  items.push({
+    key:'rev', label:'I. 매출', v27:v('rev'), v26:p26a('rev'),
+    drivers:[
+      {name:'무선 CAPA', detail:`${fmt(capa26)}건 → ${fmt(capa27)}건 (${pct(capa27,capa26)}%)`},
+      {name:'대당매출', detail:`${fmt(unitRev26)}원 → ${fmt(unitRev27)}원 (${pct(unitRev27,unitRev26)}%)`},
+      {name:'유통플랫폼', detail:`${fmtB(p26a('dist_rev'))} → ${fmtB(v('dist_rev')||p26a('dist_rev')*(1+(p.distGrowth||2)/100))} (${p.distGrowth||2}% 성장)`}
+    ],
+    narrative:`CAPA ${fmt(capa27)}건(+${pct(capa27,capa26)}%)으로 무선 수수료수익 성장, 대당매출 ${pct(unitRev27,unitRev26)}% 상승, 유통플랫폼 ${p.distGrowth||2}% 성장 반영`
+  });
+
+  // ── 상품매출 ──
+  items.push({
+    key:'prod', label:'ㄴ 상품매출', v27:v('prod'), v26:p26a('prod'),
+    drivers:[
+      {name:'CAPA 증가', detail:`${fmt(capa26)} → ${fmt(capa27)}건`},
+      {name:'대당매출단가', detail:`${fmt(unitRev26)}원 → ${fmt(unitRev27)}원`}
+    ],
+    narrative:`CAPA 성장(${pct(capa27,capa26)}%)에 따른 단말 판매 증가 및 대당매출 ${pct(unitRev27,unitRev26)}% 반영`
+  });
+
+  // ── 정책수수료 ──
+  items.push({
+    key:'pol', label:'ㄴ 정책수수료', v27:v('pol'), v26:p26a('pol'),
+    drivers:[
+      {name:'무선 CAPA(비IoT)', detail:`${fmt(capa27)}건 (+${pct(capa27,capa26)}%)`},
+      {name:'대당정책수수료', detail:`${fmt(unitPol26)}원 → ${fmt(unitPol27)}원 (${pct(unitPol27,unitPol26)}%)`},
+      {name:'유선 순신규', detail:`${fmt(p.wirelineNet||175000)}건 목표`}
+    ],
+    narrative:`무선 CAPA 성장과 유선 순신규 ${fmt(p.wirelineNet||175000)}건 기반, 대당정책수수료 ${pct(unitPol27,unitPol26)}% 조정`
+  });
+
+  // ── 관리수수료 ──
+  items.push({
+    key:'mgmt', label:'ㄴ 관리수수료', v27:v('mgmt'), v26:p26a('mgmt'),
+    drivers:[
+      {name:'Active 가입자 변화', detail:`CAPA 성장의 약 40% 반영`},
+      {name:'단가 소폭 인상', detail:`${(gr*0.3).toFixed(1)}% 인상 가정`}
+    ],
+    narrative:`Active 가입자 변화(CAPA 40% 반영)와 관리수수료 단가 ${(gr*0.3).toFixed(1)}% 인상으로 ${pct(v('mgmt'),p26a('mgmt'))}% 변동`
+  });
+
+  // ── 매출원가 ──
+  items.push({
+    key:'cogs', label:'II. 매출원가', v27:v('cogs'), v26:p26a('cogs'),
+    drivers:[
+      {name:'CAPA 증가', detail:`단말 원가 볼륨 증가`},
+      {name:'대당원가', detail:`${fmt(unitCogs26)}원 → ${fmt(unitCogs27)}원 (원가율 ${p.telCogsImprove||0}% 개선)`}
+    ],
+    narrative:`CAPA 성장에 따른 단말 원가 증가, 대당원가율 ${p.telCogsImprove||0}% 개선 가정`
+  });
+
+  // ── 인건비 ──
+  items.push({
+    key:'labor', label:'ㄴ 인건비', v27:v('labor'), v26:p26a('labor'),
+    drivers:[
+      {name:'일반직', detail:`${genHC26}명→${genHC27}명, 인당 ${genIpp26}백만→${genIpp27}백만 (임금인상 ${wg}%)`},
+      {name:'영업직', detail:`${fmt(salHC26)}명→${fmt(salHC27)}명, 인당 ${salIpp26}백만→${salIpp27}백만`},
+      {name:'26년 특별격려금 30억 기저효과', detail:`27년 미반영 시 인건비 감소 요인`}
+    ],
+    narrative:`임금인상률 ${wg}% 적용(임단협 기준), 영업직 ${fmt(salHC27)}명 소폭 증가. 26년 특별격려금 30억 미반영 기저효과 감안`
+  });
+
+  // ── 마케팅비용(판촉+판매수수료+광고) ──
+  items.push({
+    key:'mkt', label:'ㄴ 마케팅비용', v27:v('mkt'), v26:p26a('mkt'),
+    drivers:[
+      {name:'판촉비', detail:`CAPA 연동 ${p.spGrowth||3}% 증가`},
+      {name:'판매수수료', detail:`건당 수수료 × CAPA 증가분`},
+      {name:'광고선전비', detail:`전년 수준 유지`}
+    ],
+    narrative:`CAPA 성장 연동 판촉비(${p.spGrowth||3}% 증가)와 판매수수료 증가, 비효율 판촉 정리로 마케팅비 ${pct(v('mkt'),p26a('mkt'))}%`
+  });
+
+  // ── 임차관리비 ──
+  items.push({
+    key:'rent', label:'ㄴ 임차관리비', v27:v('rent'), v26:p26a('rent'),
+    drivers:[
+      {name:'소매 매장수', detail:`${storeR26}개 → ${storeR27}개`},
+      {name:'임차료 인상', detail:`${ri}% 인상 가정`}
+    ],
+    narrative:`소매 매장 ${storeR27}개 확대 및 임차료 ${ri}% 인상 반영`
+  });
+
+  // ── 감가상각비 ──
+  items.push({
+    key:'dep', label:'ㄴ 감가상각비', v27:v('dep'), v26:p26a('dep'),
+    drivers:[
+      {name:'기존 자산 상각', detail:`연 8% 자연감소`},
+      {name:'신규 CAPEX', detail:`${fmtB(capex27)} 투자 / 내용연수 ${depLife}년`}
+    ],
+    narrative:`기존 자산 상각(연 8% 감소) + 신규 CAPEX ${fmtB(capex27)} 투자(내용연수 ${depLife}년)로 ${pct(v('dep'),p26a('dep'))}% 변동`
+  });
+
+  // ── 기타운영비 ──
+  items.push({
+    key:'opex', label:'ㄴ 기타운영비', v27:v('opex'), v26:p26a('opex'),
+    drivers:[
+      {name:'물가(CPI)', detail:`${ci}% 상승 기반 전반 증가`},
+      {name:'지급수수료', detail:`IT 구조조정 반영`},
+      {name:'운반비', detail:`CAPA 연동 물류비 증가`}
+    ],
+    narrative:`물가 ${ci}% 상승 기반 전반적 증가, CAPA 연동 운반비 포함. 기타운영비 ${pct(v('opex'),p26a('opex'))}%`
+  });
+
+  // ── 유통플랫폼 영업이익 ──
+  items.push({
+    key:'dist_op', label:'유통플랫폼 영업이익', v27:v('dist_op'), v26:p26a('dist_op'),
+    drivers:[
+      {name:'굿바이마켓', detail:`매입 2배 확대 목표`},
+      {name:'시연폰', detail:`안정화 기조 유지`},
+      {name:'코코넛', detail:`월 8천건+ 목표 신규 매출`}
+    ],
+    narrative:`굿바이 매입 확대, 시연폰 안정화, 코코넛 월 8천건+ 목표로 유통플랫폼 이익 ${pct(v('dist_op'),p26a('dist_op'))}% 성장`
+  });
+
+  // ── 영업이익 ──
+  const opm26 = p26a('rev') ? (p26a('op')/p26a('rev')*100) : 0;
+  const opm27 = v('rev') ? (v('op')/v('rev')*100) : 0;
+  items.push({
+    key:'op', label:'V. 영업이익', v27:v('op'), v26:p26a('op'),
+    drivers:[
+      {name:'매출 성장', detail:`+${pct(v('rev'),p26a('rev'))}%`},
+      {name:'OPM 변화', detail:`${opm26.toFixed(1)}% → ${opm27.toFixed(1)}% (${(opm27-opm26)>=0?'+':''}${(opm27-opm26).toFixed(1)}pp)`},
+      {name:'통신/유통', detail:`통신 ${fmtB(v('op')-v('dist_op'))} / 유통 ${fmtB(v('dist_op'))}`}
+    ],
+    narrative:`매출 +${pct(v('rev'),p26a('rev'))}% 성장 대비 비용 통제로 OPM ${opm26.toFixed(1)}%→${opm27.toFixed(1)}%. 통신 ${fmtB(v('op')-v('dist_op'))}, 유통 ${fmtB(v('dist_op'))}`
+  });
+
+  // ── 월별 특이월 분석 ──
+  const monthlyAnalysis = generateMonthlyAnalysis();
+
+  return { items, monthlyAnalysis, capa27, capa26, opm27, opm26 };
+}
+
+// ── 월별 특이월 자동 감지 ──
+function generateMonthlyAnalysis(){
+  const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const anomalies = [];
+  const plRows = M26_DATA?.pl || [];
+
+  for(const row of plRows){
+    if(row.sep || !row.m || row.m.length<12) continue;
+    const avg = row.m.reduce((a,b)=>a+(b||0),0)/12;
+    if(avg===0) continue;
+    for(let i=0;i<12;i++){
+      const v = row.m[i]||0;
+      const ratio = Math.abs(v)/Math.abs(avg);
+      if(ratio > 1.8 || (Math.abs(v-avg) > 1000 && ratio > 1.5)){
+        let reason = '';
+        if(row.key==='특별격려금' && i===8) reason = '추석 특별격려금 30억 일시 지급';
+        else if(row.key==='퇴직급여' && i===11) reason = '퇴직급여충당금 연말 일괄 정산 (38.9억)';
+        else if(row.key==='일반직급여' && i===11) reason = '연말 성과급 및 정산분 반영 (24.2억)';
+        else if(row.key==='감가상각비' && (i===2||i===5||i===8||i===11)) reason = '분기 말 유형자산 상각 집중 반영';
+        else if(row.key==='복리후생비' && (i===5||i===8||i===11)) reason = '하계휴가비/명절비/연말 복지 집중 지급';
+        else if(row.key==='임차관리비' && (i===2||i===5||i===8||i===11)) reason = '분기 말 임차료 정산 (음수: 보증금 이자 상계)';
+        else if(row.key==='판촉비' && v > avg*1.3) reason = 'CAPA 집중 분기 판촉비 확대';
+        else if(row.key==='포상비' && i===11) reason = '연말 우수사원 포상 집중 (2.2억)';
+        else if(row.key==='지급수수료' && i>=10) reason = 'IT 시스템 유지보수 연말 정산';
+        else reason = `월 평균 대비 ${(ratio).toFixed(1)}배 — 계절적 요인 또는 정산 반영`;
+
+        anomalies.push({
+          item: row.label || row.key,
+          month: MONTHS[i],
+          monthIdx: i,
+          value: v,
+          avg: Math.round(avg),
+          ratio: ratio.toFixed(1),
+          reason: reason
+        });
+      }
+    }
+  }
+
+  // 사용자 저장 코멘트 로드
+  let userComments = {};
+  try { userComments = JSON.parse(localStorage.getItem('ktms_monthly_comments')||'{}'); } catch(_){}
+
+  return { anomalies, userComments };
+}
+
+// 월별 코멘트 저장
+function saveMonthlyComment(itemKey, monthIdx, text){
+  let comments = {};
+  try { comments = JSON.parse(localStorage.getItem('ktms_monthly_comments')||'{}'); } catch(_){}
+  const k = itemKey+'_'+monthIdx;
+  if(text && text.trim()) comments[k] = text.trim();
+  else delete comments[k];
+  localStorage.setItem('ktms_monthly_comments', JSON.stringify(comments));
+}
+
+// ============================================================
+// 📊 Phase 2: renderExecReport() — 임원용 보고서
+// ============================================================
+function renderExecReport(){
+  const el = document.getElementById('exec_report_out');
+  if(!el) return;
+
+  // 27년 예측이 없으면 기본 분석으로도 동작
+  if(!F27?.forecast27){ try{ f27Compute(); }catch(_){} }
+  const analysis = generateFullAnalysis();
+  const items = analysis.items;
+  const ma = analysis.monthlyAnalysis;
+  const fmt = v => Math.round(v||0).toLocaleString('ko-KR');
+  const fmtB = v => (Math.round((v||0)/100)/10).toFixed(1)+'억';
+  const pct = (a,b) => b ? ((a/b-1)*100).toFixed(1) : '0.0';
+
+  // 주요 수치
+  const revItem = items.find(i=>i.key==='rev')||{};
+  const opItem = items.find(i=>i.key==='op')||{};
+  const rev27=revItem.v27||0, rev26=revItem.v26||0;
+  const op27=opItem.v27||0, op26=opItem.v26||0;
+  const opm27 = analysis.opm27||0, opm26 = analysis.opm26||0;
+  const capa27 = analysis.capa27||680000, capa26 = analysis.capa26||670000;
+  const distItem = items.find(i=>i.key==='dist_op')||{};
+
+  // ── 보고서 HTML 생성 ──
+  let html = `<div id="exec_report_content" style="max-width:1100px;margin:0 auto;font-size:12px">`;
+
+  // ── 섹션 1: 타이틀 + KPI ──
+  html += `
+  <div style="text-align:center;margin-bottom:20px;padding:20px 0;border-bottom:3px solid var(--kt)">
+    <div style="font-size:10px;color:var(--t3);letter-spacing:2px;margin-bottom:4px">KT M&S</div>
+    <div style="font-size:24px;font-weight:800;color:var(--t1)">2027년 경영계획 보고서</div>
+    <div style="font-size:11px;color:var(--t3);margin-top:4px">작성일: ${new Date().toLocaleDateString('ko-KR')} | 시뮬레이터 자동 생성</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+    ${[
+      {l:'전사 매출',v:rev27,ref:rev26,color:'#1d4ed8',unit:''},
+      {l:'영업이익',v:op27,ref:op26,color:'#059669',unit:''},
+      {l:'OPM',v:opm27,ref:opm26,color:'#7c3aed',isPct:true},
+      {l:'무선 CAPA',v:capa27,ref:capa26,color:'#d97706',isCapa:true}
+    ].map(c=>{
+      const main = c.isPct ? c.v.toFixed(1)+'%' : c.isCapa ? fmt(c.v)+'건' : fmtB(c.v);
+      const diff = c.isPct ? (c.v-c.ref>=0?'+':'')+(c.v-c.ref).toFixed(1)+'pp'
+                 : (c.v>=c.ref?'+':'')+pct(c.v,c.ref)+'%';
+      return '<div style="background:#fff;border:1px solid var(--bd);border-radius:10px;padding:14px;text-align:center;border-top:3px solid '+c.color+'">'+
+        '<div style="font-size:10px;color:var(--t3);margin-bottom:4px">'+c.l+'</div>'+
+        '<div style="font-size:22px;font-weight:800;color:'+c.color+'">'+main+'</div>'+
+        '<div style="font-size:10px;color:'+(parseFloat(diff)>=0?'#059669':'#dc2626')+'">26E 대비 '+diff+'</div>'+
+        '<div style="font-size:9px;color:var(--t3);margin-top:2px">26E: '+(c.isPct?c.ref.toFixed(1)+'%':c.isCapa?fmt(c.ref)+'건':fmtB(c.ref))+'</div>'+
+      '</div>';
+    }).join('')}
+  </div>`;
+
+  // ── 섹션 2: 경영계획 총괄 ──
+  html += `
+  <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:16px;margin-bottom:20px">
+    <div style="font-size:14px;font-weight:700;color:#0c4a6e;margin-bottom:10px">1. 경영계획 총괄</div>
+    <div style="font-size:11px;color:#0c4a6e;line-height:1.8">
+      <b>핵심 전략:</b> 무선 CAPA <b>${fmt(capa27)}건</b>(비IoT, +${pct(capa27,capa26)}%)으로 수수료 수익 기반 강화,
+      유통플랫폼 <b>${(F27?.params?.distGrowth||2)}%</b> 성장으로 비통신 이익 확대.
+      임금인상률 <b>${F27?.params?.wageGrowth||3}%</b>, CAPEX <b>${fmtB(F27?.params?.capex27||2950)}</b> 투자.
+      ${opm27>opm26?'OPM '+opm26.toFixed(1)+'% → '+opm27.toFixed(1)+'%로 수익성 개선.':'OPM '+opm26.toFixed(1)+'% → '+opm27.toFixed(1)+'%로 소폭 조정, 투자 효과 28년 이후 반영 전망.'}
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-top:12px;font-size:11px">
+      <thead><tr style="background:#0c4a6e;color:#fff">
+        <th style="padding:6px 10px;text-align:left;border-radius:6px 0 0 0">항목</th>
+        <th style="padding:6px 10px;text-align:right">26E</th>
+        <th style="padding:6px 10px;text-align:right">27E</th>
+        <th style="padding:6px 10px;text-align:right;border-radius:0 6px 0 0">YoY</th>
+      </tr></thead>
+      <tbody>
+      ${items.filter(i=>['rev','prod','pol','mgmt','cogs','labor','mkt','rent','dep','opex','op','dist_op'].includes(i.key)).map((item,idx)=>{
+        const yoy = pct(item.v27,item.v26);
+        const isProfit = item.key==='op'||item.key==='dist_op';
+        const bg = idx%2===0?'#fff':'#f0f9ff';
+        const isBold = item.key==='rev'||item.key==='op';
+        return '<tr style="background:'+bg+'">'+
+          '<td style="padding:5px 10px;'+(isBold?'font-weight:700':'')+'">'+item.label+'</td>'+
+          '<td style="padding:5px 10px;text-align:right;color:var(--t3)">'+fmtB(item.v26)+'</td>'+
+          '<td style="padding:5px 10px;text-align:right;font-weight:600">'+fmtB(item.v27)+'</td>'+
+          '<td style="padding:5px 10px;text-align:right;color:'+(parseFloat(yoy)>=0?(isProfit?'#059669':'#dc2626'):(isProfit?'#dc2626':'#059669'))+'">'+yoy+'%</td>'+
+        '</tr>';
+      }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+
+  // ── 섹션 3: 세그먼트별 ──
+  html += `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+    <div style="border:1px solid var(--bd);border-radius:10px;padding:14px;border-top:3px solid var(--ac)">
+      <div style="font-size:13px;font-weight:700;color:var(--ac2);margin-bottom:8px">2-1. 통신사업</div>
+      <div style="font-size:11px;line-height:1.7;color:var(--t2)">
+        무선 CAPA <b>${fmt(capa27)}건</b>으로 전년 대비 <b>+${pct(capa27,capa26)}%</b> 성장.<br>
+        정책수수료 ${fmtB(items.find(i=>i.key==='pol')?.v27||0)}, 관리수수료 ${fmtB(items.find(i=>i.key==='mgmt')?.v27||0)}.<br>
+        통신 영업이익 ${fmtB((op27||0)-(distItem.v27||0))} (전사의 ${(((op27-distItem.v27)/op27)*100).toFixed(0)}%)
+      </div>
+    </div>
+    <div style="border:1px solid var(--bd);border-radius:10px;padding:14px;border-top:3px solid var(--or)">
+      <div style="font-size:13px;font-weight:700;color:var(--or2);margin-bottom:8px">2-2. 유통플랫폼</div>
+      <div style="font-size:11px;line-height:1.7;color:var(--t2)">
+        영업이익 ${fmtB(distItem.v27||0)} (전사의 ${((distItem.v27/op27)*100).toFixed(0)}%)<br>
+        굿바이마켓 매입 2배 확대, 시연폰 안정화, 코코넛 월 8천건+ 목표.<br>
+        YoY ${pct(distItem.v27,distItem.v26)}% 성장 목표
+      </div>
+    </div>
+  </div>`;
+
+  // ── 섹션 4: 항목별 증감 분석 (핵심) ──
+  html += `
+  <div style="margin-bottom:20px">
+    <div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--t1)">3. 항목별 증감 분석</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    ${items.filter(i=>i.key!=='op').map(item=>{
+      const yoy = pct(item.v27, item.v26);
+      const diff = item.v27 - item.v26;
+      const isCost = !['rev','prod','pol','mgmt','dist_op'].includes(item.key);
+      const isGood = isCost ? diff<=0 : diff>=0;
+      const color = isGood ? '#059669' : '#dc2626';
+      return `<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;border-left:3px solid ${color}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-weight:700;font-size:12px">${item.label}</span>
+          <span style="font-size:14px;font-weight:800;color:${color}">${diff>=0?'+':''}${fmtB(diff)} (${yoy}%)</span>
+        </div>
+        <div style="display:flex;gap:8px;font-size:10px;color:var(--t3);margin-bottom:6px">
+          <span>26E: ${fmtB(item.v26)}</span><span>→</span><span style="font-weight:600;color:var(--t1)">27E: ${fmtB(item.v27)}</span>
+        </div>
+        <div style="font-size:10.5px;color:var(--t2);line-height:1.5;background:var(--s2);border-radius:5px;padding:6px 8px">
+          ${item.drivers.map(d=>'<div><b>'+d.name+':</b> '+d.detail+'</div>').join('')}
+        </div>
+        <div style="font-size:10px;color:var(--t3);margin-top:4px;font-style:italic">${item.narrative}</div>
+      </div>`;
+    }).join('')}
+    </div>
+  </div>`;
+
+  // ── 섹션 5: 월별 하이라이트 ──
+  html += `
+  <div style="margin-bottom:20px">
+    <div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid var(--t1)">4. 월별 배분 하이라이트</div>
+    <div style="font-size:10px;color:var(--t3);margin-bottom:8px">* 월 평균 대비 1.5배 이상 특이값 자동 감지 결과</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+      <thead><tr style="background:var(--t1);color:#fff">
+        <th style="padding:5px 8px;text-align:left">항목</th>
+        <th style="padding:5px 8px">월</th>
+        <th style="padding:5px 8px;text-align:right">해당월 값</th>
+        <th style="padding:5px 8px;text-align:right">월평균</th>
+        <th style="padding:5px 8px;text-align:right">배율</th>
+        <th style="padding:5px 8px;text-align:left">자동 설명</th>
+        <th style="padding:5px 8px;text-align:left;min-width:140px">수동 코멘트</th>
+      </tr></thead>
+      <tbody>
+      ${(ma.anomalies||[]).slice(0,20).map((a,idx)=>{
+        const ck = (a.item+'_'+a.monthIdx).replace(/\s/g,'_');
+        const userComment = ma.userComments[ck]||'';
+        return '<tr style="background:'+(idx%2===0?'#fff':'var(--s2)')+'">'+
+          '<td style="padding:4px 8px;font-weight:600">'+a.item+'</td>'+
+          '<td style="padding:4px 8px;text-align:center">'+a.month+'</td>'+
+          '<td style="padding:4px 8px;text-align:right;font-variant-numeric:tabular-nums'+(a.value<0?';color:#dc2626':'')+'">'+fmt(a.value)+'</td>'+
+          '<td style="padding:4px 8px;text-align:right;color:var(--t3)">'+fmt(a.avg)+'</td>'+
+          '<td style="padding:4px 8px;text-align:right;font-weight:700;color:#d97706">×'+a.ratio+'</td>'+
+          '<td style="padding:4px 8px;font-size:10px;color:var(--t2)">'+a.reason+'</td>'+
+          '<td style="padding:2px 4px"><input type="text" value="'+userComment.replace(/"/g,'&quot;')+'" '+
+            'onchange="saveMonthlyComment(\''+ck.replace(/'/g,"\\'")+"',"+a.monthIdx+',this.value)" '+
+            'style="width:100%;padding:3px 6px;border:1px solid var(--bd);border-radius:4px;font-size:10px;font-family:inherit" '+
+            'placeholder="코멘트 입력..."></td>'+
+        '</tr>';
+      }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+
+  // ── 섹션 6: 리스크 & 가정 ──
+  let riskData={};
+  try{riskData=JSON.parse(localStorage.getItem('ktms_risk_factors_v1')||'{}');}catch(_){}
+  const riskUp = riskData.risk_up || '• 5G 교체 수요 가속화\n• 기업(B2B) IoT 수주 호조\n• 유통플랫폼 성장 가속';
+  const riskDown = riskData.risk_down || '• MVNO 가격 경쟁 심화\n• 단말 수급 불안\n• 임단협 인상률 상회';
+  const counter = riskData.countermeasure || '• CAPA 미달 시: 도매·디지털 채널 인센티브 확대\n• 인건비 초과 시: 복리후생비 조정\n• 마케팅비 절감: 효율 낮은 판촉 정리';
+
+  html += `
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">
+    <div style="border:1px solid #fde68a;border-radius:10px;padding:12px;background:#fffbeb">
+      <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:6px">⚠️ 상방 리스크</div>
+      <div style="font-size:10px;color:#92400e;line-height:1.6;white-space:pre-line">${riskUp}</div>
+    </div>
+    <div style="border:1px solid #fecaca;border-radius:10px;padding:12px;background:#fef2f2">
+      <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:6px">🔻 하방 리스크</div>
+      <div style="font-size:10px;color:#dc2626;line-height:1.6;white-space:pre-line">${riskDown}</div>
+    </div>
+    <div style="border:1px solid #bbf7d0;border-radius:10px;padding:12px;background:#f0fdf4">
+      <div style="font-size:12px;font-weight:700;color:#0f766e;margin-bottom:6px">🛡️ 대응 방안</div>
+      <div style="font-size:10px;color:#0f766e;line-height:1.6;white-space:pre-line">${counter}</div>
+    </div>
+  </div>`;
+
+  // ── 섹션 7: 주요 가정 ──
+  const p = F27?.params||{};
+  html += `
+  <div style="border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:20px">
+    <div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:10px">6. 주요 가정 (Assumptions)</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11px">
+      ${[
+        {l:'임금인상률',v:(p.wageGrowth||3)+'%',c:'임단협 기준값'},
+        {l:'물가상승률(CPI)',v:(p.cpiGrowth||2)+'%',c:'운영비 연동'},
+        {l:'임차료 인상',v:(p.rentGrowth||2)+'%',c:'점포 임차 갱신 기준'},
+        {l:'무선 CAPA',v:fmt(p.wirelessCapaTotal||680000)+'건',c:'비IoT 기준'},
+        {l:'CAPEX',v:fmtB(p.capex27||2950),c:'유형+무형 합산'},
+        {l:'감가 내용연수',v:(p.depLife||5)+'년',c:'가중평균'},
+        {l:'유통플랫폼 성장',v:(p.distGrowth||2)+'%',c:'굿바이+시연폰+코코넛'},
+        {l:'대당매출 성장',v:(p.revenueGrowth||3)+'%',c:'전체 수익 성장률'},
+        {l:'정책수수료 단가',v:(p.polUnitGrowth||0)+'%',c:'채널 지원 수준'}
+      ].map(a=>'<div style="background:var(--s2);border-radius:6px;padding:8px"><div style="font-weight:700;color:var(--t1)">'+a.l+'</div><div style="font-size:16px;font-weight:800;color:var(--ac2);margin:2px 0">'+a.v+'</div><div style="font-size:9px;color:var(--t3)">'+a.c+'</div></div>').join('')}
+    </div>
+  </div>`;
+
+  html += `</div>`; // close exec_report_content
+
+  el.innerHTML = html;
+}
+
+// ── 텍스트 복사 ──
+function copyExecReportText(){
+  const el = document.getElementById('exec_report_content');
+  if(!el){alert('먼저 보고서를 생성하세요');return;}
+  const text = el.innerText;
+  navigator.clipboard.writeText(text).then(()=>alert('보고서 텍스트가 클립보드에 복사되었습니다.')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    alert('보고서 텍스트가 클립보드에 복사되었습니다.');
+  });
+}
+
+// ============================================================
+// 📊 Phase 3: exportEnhancedXlsx() — 분석 포함 엑셀 다운로드
+// ============================================================
+function exportEnhancedXlsx(){
+  if(typeof XLSX==='undefined'){alert('XLSX 라이브러리 필요');return;}
+  if(!F27?.forecast27){ try{ f27Compute(); }catch(_){} }
+
+  const analysis = generateFullAnalysis();
+  const items = analysis.items;
+  const ma = analysis.monthlyAnalysis;
+  const fc = F27?.forecast27||{};
+  const fmt = v => Math.round(v||0);
+  const fmtB = v => (Math.round((v||0)/100)/10).toFixed(1);
+  const pct = (a,b) => b ? ((a/b-1)*100).toFixed(1) : '0.0';
+  const MO = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const wb = XLSX.utils.book_new();
+
+  // ── Sheet 1: 요약 ──
+  {
+    const aoa = [
+      ['KT M&S 2027년 경영계획 요약'],
+      ['작성일: '+new Date().toLocaleDateString('ko-KR')],
+      [],
+      ['항목','26E (백만원)','27E (백만원)','증감','YoY(%)','비고']
+    ];
+    for(const item of items){
+      aoa.push([
+        item.label, fmt(item.v26), fmt(item.v27),
+        fmt(item.v27-item.v26), pct(item.v27,item.v26)+'%',
+        item.narrative
+      ]);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:18},{wch:14},{wch:14},{wch:12},{wch:10},{wch:60}];
+    XLSX.utils.book_append_sheet(wb,ws,'요약');
+  }
+
+  // ── Sheet 2: 전사 손익 ──
+  {
+    const keys = ['rev','cogs','gp','labor','mkt','sc','sp','rent','dep','opex','op'];
+    const labels = {rev:'매출',cogs:'매출원가',gp:'매출총이익',labor:'인건비',mkt:'마케팅비용',sc:'판매수수료',sp:'판촉비',rent:'임차관리비',dep:'감가상각비',opex:'기타운영비',op:'영업이익'};
+    const p26map = {rev:816287,cogs:555461,gp:260826,labor:147785,mkt:45587,sc:16897,sp:28060,rent:5474,dep:6036,opex:38791,op:17151};
+    const aoa = [['전사 손익 (P&L)','26E','27E','증감','YoY','분석 코멘트']];
+    for(const k of keys){
+      const v27 = fc[k]?fc[k].ann:0;
+      const v26 = p26map[k]||0;
+      const item = items.find(i=>i.key===k);
+      aoa.push([
+        labels[k]||k, fmt(v26), fmt(v27), fmt(v27-v26),
+        pct(v27,v26)+'%', item?item.narrative:''
+      ]);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:16},{wch:12},{wch:12},{wch:12},{wch:10},{wch:60}];
+    XLSX.utils.book_append_sheet(wb,ws,'전사손익');
+  }
+
+  // ── Sheet 3: 무선 드라이버 ──
+  {
+    const p = F27?.params||{};
+    const capa27=p.wirelessCapaTotal||680000, capa26=670000;
+    const aoa = [
+      ['무선 드라이버 분석','26E','27E','YoY'],
+      ['CAPA (비IoT)',capa26,capa27,pct(capa27,capa26)+'%'],
+      ['대당매출 (원)',708268,Math.round(708268*(1+(p.revenueGrowth||3)/100)),(p.revenueGrowth||3)+'%'],
+      ['대당원가 (원)',760673,Math.round(760673*(1+(p.revenueGrowth||3)/100*(1-(p.telCogsImprove||0)/100))),''],
+      ['대당정책수수료 (원)',247338,Math.round(247338*(1+(p.polUnitGrowth||0)/100)),(p.polUnitGrowth||0)+'%'],
+      ['관리수수료 단가 증가','','',(((p.revenueGrowth||3)*0.3).toFixed(1))+'%'],
+      [],
+      ['채널별 관리수수료 (26E)','도매','소매','소상공인','디지털','기업','Biz'],
+      ['단가 (원)',5100,2635,2125,4734,3740,2125],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:24},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,ws,'무선드라이버');
+  }
+
+  // ── Sheet 4: 유통플랫폼 ──
+  {
+    const distRows = M26_DATA?.dist||[];
+    const aoa = [['유통플랫폼','연간합계',...MO]];
+    for(const row of distRows){
+      if(row.sep){aoa.push([row.label||'---']);continue;}
+      const ann = (row.m||[]).reduce((a,v)=>a+(v||0),0);
+      aoa.push([row.label||row.key, ann, ...(row.m||[])]);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:20},{wch:12},...MO.map(()=>({wch:10}))];
+    XLSX.utils.book_append_sheet(wb,ws,'유통플랫폼');
+  }
+
+  // ── Sheet 5: 인건비 ──
+  {
+    const p = F27?.params||{};
+    const aoa = [
+      ['인건비 분석','26E','27E','YoY'],
+      ['일반직 인원 (명)',194,Math.round(194*(1+(p.revenueGrowth||3)/100*0.3)),''],
+      ['영업직 인원 (명)',1940,Math.round(1940*(1+(p.revenueGrowth||3)/100*0.5)),''],
+      ['일반직 인당급여 (백만)',98.2,+(98.2*(1+(p.wageGrowth||3)/100)).toFixed(1),(p.wageGrowth||3)+'%'],
+      ['영업직 인당급여 (백만)',39.7,+(39.7*(1+(p.wageGrowth||3)/100)).toFixed(1),(p.wageGrowth||3)+'%'],
+      ['임금인상률',(p.wageGrowth||3)+'%','','임단협 기준'],
+      [],
+      ['26E 월별 인건비','연간합계',...MO]
+    ];
+    const lbRows = M26_DATA?.labor||[];
+    for(const row of lbRows){
+      if(row.sep){aoa.push([row.label||'---']);continue;}
+      const ann = (row.m||[]).reduce((a,v)=>a+(v||0),0);
+      aoa.push([row.label||row.key, ann, ...(row.m||[])]);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:22},{wch:12},...MO.map(()=>({wch:10}))];
+    XLSX.utils.book_append_sheet(wb,ws,'인건비');
+  }
+
+  // ── Sheet 6: 월별 배분 (26E) ──
+  {
+    const plRows = M26_DATA?.pl||[];
+    const aoa = [['26E 월별 배분','연간합계',...MO]];
+    for(const row of plRows){
+      if(row.sep){aoa.push([row.label||'---']);continue;}
+      const ann = (row.m||[]).reduce((a,v)=>a+(v||0),0);
+      aoa.push([row.label||row.key, ann, ...(row.m||[])]);
+    }
+    // 27E 월별 (있으면)
+    aoa.push([]);
+    aoa.push(['27E 월별 예측','연간',...MO]);
+    const fcKeys = ['rev','cogs','gp','labor','mkt','sp','rent','dep','opex','op'];
+    const fcLabels = {rev:'매출',cogs:'매출원가',gp:'매출총이익',labor:'인건비',mkt:'마케팅비용',sp:'판촉비',rent:'임차관리비',dep:'감가상각비',opex:'기타운영비',op:'영업이익'};
+    for(const k of fcKeys){
+      const r = fc[k]||{ann:0,mon:Array(12).fill(0)};
+      aoa.push([fcLabels[k]||k, r.ann, ...r.mon]);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:18},{wch:12},...MO.map(()=>({wch:10}))];
+    XLSX.utils.book_append_sheet(wb,ws,'월별배분');
+  }
+
+  // ── Sheet 7: 항목별 분석 ──
+  {
+    const aoa = [['항목별 증감 분석'],[''],['항목','26E','27E','증감','YoY','드라이버','분석 코멘트']];
+    for(const item of items){
+      aoa.push([
+        item.label, fmt(item.v26), fmt(item.v27),
+        fmt(item.v27-item.v26), pct(item.v27,item.v26)+'%',
+        item.drivers.map(d=>d.name+': '+d.detail).join(' / '),
+        item.narrative
+      ]);
+    }
+    aoa.push([]);
+    aoa.push(['월별 특이월 분석']);
+    aoa.push(['항목','월','해당월 값','월평균','배율','자동 설명','수동 코멘트']);
+    for(const a of (ma.anomalies||[]).slice(0,30)){
+      const ck = (a.item+'_'+a.monthIdx).replace(/\s/g,'_');
+      aoa.push([a.item, a.month, a.value, a.avg, a.ratio+'x', a.reason, ma.userComments[ck]||'']);
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:18},{wch:12},{wch:12},{wch:12},{wch:10},{wch:45},{wch:45}];
+    XLSX.utils.book_append_sheet(wb,ws,'항목별분석');
+  }
+
+  XLSX.writeFile(wb, 'KT_MS_2027_경영계획_분석포함.xlsx');
+  alert('분석 포함 엑셀이 다운로드되었습니다.');
 }
 
 // ============================================================
