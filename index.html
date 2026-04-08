@@ -24151,119 +24151,172 @@ function clearAllActual(){
   renderAllSheets();
 }
 
-// ── BM 실적 반영 + 전항목 12개월 예측 + 27E 자동 캐스케이드 ────
+// ── BM YoY 추세 기반 전항목 12개월 예측 + 27E/28E 캐스케이드 ────
+// 핵심: plan×scale이 아니라 BM 2025 실제 시즌패턴 × YoY 성장률
+// → 대당매출, 대당수수료, 대당원가 등 per-unit 추세 자연 반영
+// GP/OP = 파생값(rev-cogs, gp-sga)으로 P&L 정합성 보장
 function loadBMActuals2026(){
-  if(typeof BM_MONTHLY_2025==='undefined'){
-    alert('BM_MONTHLY_2025 데이터가 없습니다.'); return;
-  }
-  const BM=BM_MONTHLY_2025;
-  const P=PLAN_2026_FULL;
+  if(typeof BM_MONTHLY_2025==='undefined'){ alert('BM_MONTHLY_2025 데이터가 없습니다.'); return; }
+  const BM=BM_MONTHLY_2025, P=PLAN_2026_FULL;
+  const T=PLAN_TEL_FULL, D=PLAN_DIST_FULL, L=PLAN_LABOR_FULL, O=PLAN_OPEX_FULL;
   if(!BM.rev_2026||!BM.rev_2026.length){ alert('BM 2026 실적 데이터가 없습니다.'); return; }
   const nAct=BM.rev_2026.length; // 실적 확정 월 수 (2)
 
-  // ── 1) BM 실적 → 스케일팩터 계산 ──────────────────────────
-  function calcScale(actArr, planMon){
-    if(!actArr||!actArr.length) return 1;
-    const aS=actArr.reduce((a,b)=>a+b,0);
-    const pS=planMon.slice(0,actArr.length).reduce((a,b)=>a+b,0);
-    return pS?Math.max(0.5,Math.min(2.0, aS/pS)):1;
+  // ══════════════════════════════════════════════════════════
+  // YoY 추세 기반 예측: plan×스케일이 아니라
+  // BM 2025 실제 시즌패턴 × YoY 성장률 → 대당매출/대당수수료 추세 반영
+  // ══════════════════════════════════════════════════════════
+
+  // ── 1) YoY 성장률: BM 2025 1~N월 → BM 2026 1~N월 ─────────
+  function calcYoY(arr26, arr25){
+    if(!arr26||!arr25) return 1;
+    const s26=arr26.reduce((a,b)=>a+b,0);
+    const s25=arr25.slice(0,arr26.length).reduce((a,b)=>a+b,0);
+    return s25?Math.max(0.5,Math.min(2.5, s26/s25)):1;
   }
-  const S={
-    rev:  calcScale(BM.rev_2026,  P.rev.mon),
-    prod: calcScale(BM.prod_2026, P.prod.mon),
-    comm: calcScale(BM.comm_2026, P.comm.mon),
-    cogs: calcScale(BM.cogs_2026, P.cogs.mon),
-    gp:   calcScale(BM.gp_2026,  P.gp.mon),
-    sga:  calcScale(BM.sga_2026, P.sga.mon),
-    op:   calcScale(BM.op_2026,  P.op.mon),
+  const Y={
+    rev:  calcYoY(BM.rev_2026,  BM.rev),   // 매출 YoY (대당매출 추세 포함)
+    prod: calcYoY(BM.prod_2026, BM.prod),   // 상품매출 YoY
+    comm: calcYoY(BM.comm_2026, BM.comm),   // 수수료 YoY (대당수수료 추세)
+    cogs: calcYoY(BM.cogs_2026, BM.cogs),   // 원가 YoY
+    sga:  calcYoY(BM.sga_2026,  BM.sga),    // 판관비 YoY
   };
 
-  // ── 2) F27 키 → 스케일팩터 매핑 ──────────────────────────
-  function scaleFor(key){
-    if(/^(rev|tel_rev)$/.test(key)) return S.rev;
-    if(/^(prod|dist_prod)$/.test(key)) return S.prod;
-    if(/^(comm)$/.test(key)) return S.comm;
-    if(/^(pol|mgmt|etc|tel_pol|tel_mgmt|dist_pol|dist_etc)$/.test(key)) return S.comm;
-    if(/^(cogs|dist_cogs|dist_cogs_p|dist_cogs_s)$/.test(key)) return S.cogs;
-    if(/^(gp|dist_gp)$/.test(key)) return S.gp;
-    if(/^(sga|dist_sga)$/.test(key)) return S.sga;
-    if(/^(labor|lb_|dist_labor)/.test(key)) return S.sga;
-    if(/^(mkt|sc|sp|adv)$/.test(key)) return S.sga;
-    if(/^(opex|ox_|dist_opex)/.test(key)) return S.sga;
-    if(/^(rent|dist_rent)$/.test(key)) return S.sga;
-    if(/^(dep|dist_dep)$/.test(key)) return S.sga;
-    if(/^(op|tel_op|dist_op)$/.test(key)) return S.op;
-    if(key.startsWith('dist_')) return S.rev;
-    return S.rev;
+  // ── 2) BM YoY 추세 예측 함수 ─────────────────────────────
+  // 실적월=BM2026 실적, 예측월=BM2025[m] x YoY (실제 시즌패턴)
+  function fromBM(bm25, bm26, yoyR){
+    return Array.from({length:12},(_,m)=>{
+      if(bm26&&m<nAct) return Math.round(bm26[m]);
+      return Math.round((bm25[m]||0)*yoyR);
+    });
   }
 
-  // ── 3) BM 실적 매핑 (직접 데이터 있는 항목) ──────────────
-  const BM_MAP={
-    rev:BM.rev_2026, prod:BM.prod_2026, comm:BM.comm_2026,
-    cogs:BM.cogs_2026, gp:BM.gp_2026, sga:BM.sga_2026, op:BM.op_2026,
-  };
+  // ── 3) P&L 주요항목: BM YoY 추세 예측 ─────────────────────
+  const a={};
+  a.rev  = fromBM(BM.rev,  BM.rev_2026,  Y.rev);
+  a.prod = fromBM(BM.prod, BM.prod_2026, Y.prod);
+  a.comm = fromBM(BM.comm, BM.comm_2026, Y.comm);
+  a.cogs = fromBM(BM.cogs, BM.cogs_2026, Y.cogs);
+  a.sga  = fromBM(BM.sga,  BM.sga_2026,  Y.sga);
+  // GP/OP = 파생값 → P&L 정합성 보장 (독립 YoY 대신 역산)
+  a.gp = a.rev.map((v,m)=>v-a.cogs[m]);
+  a.op = a.gp.map((v,m)=>v-a.sga[m]);
 
-  // ── 4) F27.actual26 구축: 실적월=실적, 세부항목=plan×scale ──
+  // ── 4) 인건비: BM 2025 labor x SGA YoY + 세부항목 비중배분 ──
+  a.labor = fromBM(BM.labor, null, Y.sga);
+  // labor 세부: plan 비중으로 예측 labor 배분
+  function distSub(subPlan, parentPred, parentPlan){
+    return parentPred.map((pv,m)=>{
+      const pp=parentPlan.mon[m]||1;
+      return Math.round(pv*(subPlan.mon[m]/pp));
+    });
+  }
+  a.lb_gen=distSub(L.gen_salary, a.labor, P.labor);
+  a.lb_sal=distSub(L.sal_salary, a.labor, P.labor);
+  a.lb_inc=distSub(L.incentive,  a.labor, P.labor);
+  a.lb_con=distSub(L.contract,   a.labor, P.labor);
+  a.lb_rew=distSub(L.reward,     a.labor, P.labor);
+  a.lb_ret=distSub(L.retire,     a.labor, P.labor);
+  a.lb_wel=distSub(L.welfare,    a.labor, P.labor);
+
+  // ── 5) 마케팅: SGA에서 labor 뺀 나머지를 plan 비중으로 배분 ──
+  // predicted annual adj = predicted_parent_ann / plan_parent_ann
+  function planAdj(planItem, parentPredArr, parentPlanObj){
+    const predAnn=parentPredArr.reduce((s,v)=>s+v,0);
+    const adjR=parentPlanObj.ann?predAnn/parentPlanObj.ann:1;
+    return planItem.mon.map(v=>Math.round(v*adjR));
+  }
+  a.mkt  = planAdj(P.mkt,  a.sga, P.sga);
+  a.sc   = planAdj(P.sc,   a.sga, P.sga);
+  a.sp   = planAdj(P.sp,   a.sga, P.sga);
+  a.adv  = planAdj(P.adv,  a.sga, P.sga);
+  a.rent = planAdj(P.rent, a.sga, P.sga);
+  a.dep  = planAdj(P.dep,  a.sga, P.sga);
+
+  // ── 6) 기타운영비: SGA-labor-mkt-rent-dep 역산 + 세부비중 ──
+  a.opex = a.sga.map((v,m)=>v-a.labor[m]-(a.mkt[m]||0)-(a.rent[m]||0)-(a.dep[m]||0));
+  function distOx(sub){
+    return a.opex.map((pv,m)=>{
+      const pp=P.opex.mon[m]||1;
+      return Math.round(pv*(sub.mon[m]/pp));
+    });
+  }
+  a.ox_fee=distOx(O.fee); a.ox_mtg=distOx(O.mtg); a.ox_trn=distOx(O.trans);
+  a.ox_edu=distOx(O.edu); a.ox_tel=distOx(O.telecom); a.ox_sup=distOx(O.supplies);
+  a.ox_ent=distOx(O.entertain); a.ox_ins=distOx(O.insure); a.ox_tax=distOx(O.tax);
+  a.ox_car=distOx(O.car); a.ox_trv=distOx(O.travel); a.ox_bk=distOx(O.book);
+
+  // ── 7) 수수료 세부: comm YoY + plan 비중 ──────────────────
+  a.pol  = planAdj(P.pol,  a.comm, P.comm);
+  a.mgmt = planAdj(P.mgmt, a.comm, P.comm);
+  a.etc  = planAdj(P.etc,  a.comm, P.comm);
+
+  // ── 8) 유통플랫폼: 전사 매출 adj 비례 ─────────────────────
+  const dAdj = P.rev.ann?a.rev.reduce((s,v)=>s+v,0)/P.rev.ann:1;
+  function dD(pi){ return pi.mon.map(v=>Math.round(v*dAdj)); }
+  a.dist_rev=dD(D.rev); a.dist_prod=dD(D.prod); a.dist_ad=dD(D.ad);
+  a.dist_demo=dD(D.demo); a.dist_pol=dD(D.pol); a.dist_etc=dD(D.etc);
+  a.dist_cogs_p=dD(D.cogs_p); a.dist_cogs_s=dD(D.cogs_s);
+  a.dist_cogs=dD(D.cogs); a.dist_gp=a.dist_rev.map((v,m)=>v-a.dist_cogs[m]);
+  a.dist_labor=dD(D.labor); a.dist_rent=dD(D.rent);
+  a.dist_fee=dD(D.fee); a.dist_opex=dD(D.opex);
+  a.dist_transport=dD(D.transport); a.dist_promo=dD(D.promo);
+  a.dist_dep=dD(D.dep); a.dist_supplies=dD(D.supplies);
+  a.dist_sga=dD(D.sga);
+  a.dist_op=a.dist_gp.map((v,m)=>v-(a.dist_sga[m]||0));
+
+  // ── 9) 통신 = 전사 - 유통 역산 ────────────────────────────
+  a.tel_rev  = a.rev.map((v,m)=>v-(a.dist_rev[m]||0));
+  a.tel_mgmt = a.mgmt;
+  a.tel_pol  = a.pol.map((v,m)=>v-(a.dist_pol[m]||0));
+  a.tel_op   = a.op.map((v,m)=>v-(a.dist_op[m]||0));
+
+  // ── 10) F27 캐스케이드: actual26 → merged26 → 27E/28E ────
   const actual26={};
-  F27_ALL_KEYS.forEach(key=>{
-    const plan=f27GetPlan26(key);
-    if(!plan) return;
-    const arr=Array(12).fill(null);
-    const bmArr=BM_MAP[key];
-    const sc=scaleFor(key);
-    for(let m=0;m<nAct;m++){
-      arr[m]=bmArr?Math.round(bmArr[m]):Math.round(plan.mon[m]*sc);
-    }
-    // 3~12월은 null → f27ComputeMerged26이 plan×scale로 채움
-    actual26[key]=arr;
-  });
-
-  // ── 5) F27 연동 → merged26 + forecast27 + forecast28 자동 계산 ──
+  F27_ALL_KEYS.forEach(key=>{ if(a[key]) actual26[key]=a[key]; });
   F27.actual26=actual26;
-  F27.lastActualMonth=nAct-1; // 0-based (1=2월)
+  F27.lastActualMonth=nAct-1;
   f27ComputeMerged26();
   f27Compute();
   f27Save();
 
-  // ── 6) _ACTUAL_MON에 전체 12개월 merged26 반영 (P&L 탭 표시용) ──
+  // ── 11) _ACTUAL_MON + _state.actuals 동기화 ───────────────
   const plAllKeys=['rev','prod','comm','cogs','gp','sga','labor','mkt','sc','sp','adv',
                    'pol','mgmt','etc','rent','dep','opex','op'];
   plAllKeys.forEach(key=>{
-    const merged=F27.merged26&&F27.merged26[key];
-    if(!merged) return;
+    if(!a[key]) return;
     if(!_ACTUAL_MON[key]) _ACTUAL_MON[key]={};
-    merged.forEach((v,m)=>{ _ACTUAL_MON[key][m]=Math.round(v); });
+    a[key].forEach((v,m)=>{ _ACTUAL_MON[key][m]=Math.round(v); });
   });
   _actualSave();
-
-  // ── 7) _state.actuals 동기화 ─────────────────────────────
   if(!_state.actuals) _state.actuals={};
   const yr=_state.planningYear||2026;
   if(!_state.actuals[yr]) _state.actuals[yr]={year:yr,monthly:{}};
   plAllKeys.forEach(key=>{
-    const merged=F27.merged26&&F27.merged26[key];
-    if(!merged) return;
-    _state.actuals[yr].monthly[key]=merged.map(v=>Math.round(v));
+    if(!a[key]) return;
+    _state.actuals[yr].monthly[key]=a[key].map(v=>Math.round(v));
   });
   saveState();
 
-  // ── 8) UI 갱신 ───────────────────────────────────────────
+  // ── 12) UI 갱신 ──────────────────────────────────────────
   buildActualMonGrid();
   _updateActualStatus();
   updateActualBadge();
   renderAllSheets();
   if(document.getElementById('mtrack_grid')) renderMonthlyTrack();
 
-  // ── 9) 결과 리포트 ───────────────────────────────────────
+  // ── 13) 결과 리포트 (YoY 추세 + 대당 지표) ───────────────
+  const r26=a.rev.reduce((s,v)=>s+v,0), o26=a.op.reduce((s,v)=>s+v,0);
   const fc27=F27.forecast27;
-  const rev26E=F27.merged26?F27.merged26.rev.reduce((a,b)=>a+b,0):0;
-  const op26E=F27.merged26?F27.merged26.op.reduce((a,b)=>a+b,0):0;
-  const rev27E=fc27&&fc27.rev?fc27.rev.ann:0;
-  const op27E=fc27&&fc27.op?fc27.op.ann:0;
+  const r27=fc27&&fc27.rev?fc27.rev.ann:0, o27=fc27&&fc27.op?fc27.op.ann:0;
+  // 대당 상품매출 추세 (��품비중 = prod/rev)
+  const pu25=(BM.prod[0]+BM.prod[1])/(BM.rev[0]+BM.rev[1]);
+  const pu26=(BM.prod_2026[0]+BM.prod_2026[1])/(BM.rev_2026[0]+BM.rev_2026[1]);
   _showToast(
-    `✅ BM ${nAct}개월 실적 → 26E 12개월 예측 완료\n` +
-    `26E: 매출 ${_fmt(rev26E)} | 영업이익 ${_fmt(op26E)}\n` +
-    `→ 27E 자동 갱신: 매출 ${_fmt(rev27E)} | 영업이익 ${_fmt(op27E)}`
+    `YoY 추세 기반 예측 완료 (BM ${nAct}개월)\n`+
+    `매출YoY ${(Y.rev*100-100).toFixed(1)}% | 원가YoY ${(Y.cogs*100-100).toFixed(1)}%\n`+
+    `상품비중 ${(pu25*100).toFixed(1)}%→${(pu26*100).toFixed(1)}% (대당추세)\n`+
+    `26E: ${_fmt(r26)} / OP ${_fmt(o26)} → 27E: ${_fmt(r27)} / OP ${_fmt(o27)}`
   );
 }
 
