@@ -9551,8 +9551,8 @@ function bmSyncTo26E(){
     BM_MONTHLY_2025[k.dst] = arr;
   });
 
-  // 예측 실행 (DP_SECTION_KEYS 등 후속 상수가 정의된 후에만)
-  if(typeof DP_SECTION_KEYS!=='undefined') loadBMActuals2026();
+  // 예측 실행 (DP_SECTION_KEYS 등 후속 const가 TDZ일 수 있으므로 try/catch)
+  try{ loadBMActuals2026(); }catch(_){}
 }
 
 // BM 파일 파서
