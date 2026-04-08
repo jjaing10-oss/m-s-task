@@ -202,6 +202,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .tbl tr.r-sub2 td{color:#9ca3af;font-size:10px}
 .tbl tr.r-sub3 td{color:#9ca3af;font-size:10px;padding-left:36px!important}
 .tbl tr.r-sub3 td:first-child{color:#9ca3af}
+.tbl tr.r-unit td{background:rgba(124,58,237,.04);color:#7c3aed;font-size:10px;font-style:italic;border-top:none}
+.tbl tr.r-unit td:first-child{color:#7c3aed;padding-left:28px!important}
+.tbl tr.r-unit-ch td{background:rgba(124,58,237,.02);color:#a78bfa;font-size:9.5px;font-style:italic;border-top:none}
+.tbl tr.r-unit-ch td:first-child{color:#a78bfa;padding-left:44px!important}
 .tbl tr.hover-row:hover td{background:#eff6ff!important;cursor:pointer}
 .tbl tr.hover-row td:first-child{color:#1d4ed8}
 .lnk{font-size:9px;padding:1px 5px;border-radius:4px;background:#eff6ff;color:#1d4ed8;font-weight:700;margin-left:3px;vertical-align:middle}
@@ -1191,6 +1195,35 @@ body.edit-mode{background:var(--bg)!important}
   </div>
   <!-- /2026년 목표 패널 -->
 
+  <!-- ★ v93: 퀵 파라미터 패널 -->
+  <div class="sec" style="margin-top:10px">⚡ 퀵 시뮬레이션</div>
+  <div style="background:rgba(245,158,11,.04);border:1px solid rgba(245,158,11,.2);border-radius:7px;padding:10px 12px">
+    <div style="font-size:9px;color:var(--t3);margin-bottom:6px">주요 드라이버를 빠르게 조정 → P&L 즉시 반영</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:2px">CAPA (만건)</div>
+        <input type="text" id="_qp_capa" class="if mono" style="width:100%;font-size:11px;padding:3px 6px" value="67.0"
+          onchange="_qpApplyCapa(this.value)">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:2px">대당매출 (만원)</div>
+        <input type="text" id="_qp_pu" class="if mono" style="width:100%;font-size:11px;padding:3px 6px" value="70.8"
+          onchange="_qpApplyPU(this.value)">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:2px">대당정책 (만원)</div>
+        <input type="text" id="_qp_pol" class="if mono" style="width:100%;font-size:11px;padding:3px 6px" value="24.7"
+          onchange="_qpApplyPol(this.value)">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--t2);margin-bottom:2px">인건비 증감%</div>
+        <input type="text" id="_qp_labor" class="if mono" style="width:100%;font-size:11px;padding:3px 6px" value="0"
+          onchange="_qpApplyLabor(this.value)">
+      </div>
+    </div>
+    <button onclick="_qpReset()" style="margin-top:6px;width:100%;padding:4px;font-size:10px;border-radius:5px;border:1px solid var(--bd);background:var(--bg2);cursor:pointer;color:var(--t3);font-family:inherit">↩ 퀵 설정 초기화</button>
+  </div>
+
   <div class="sec">🏪 유통플랫폼</div>
   <div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:7px;padding:8px 12px;font-size:11px;color:var(--gn2)">
     🔗 <b>유통플랫폼 탭</b>에서 매출/원가/SGA 직접 입력 → 전사 손익 자동 반영
@@ -1267,6 +1300,7 @@ body.edit-mode{background:var(--bg)!important}
       <span class="badge" style="background:rgba(59,130,246,.12);color:var(--ac2);padding:4px 8px;border-radius:5px;font-size:10px">🔗 무선/유선 자동연동</span>
     </div>
   </div>
+  <div id="_crossTabBanner" style="margin-bottom:8px"></div>
   <div id="pl_out"></div>
 </div>
 </div>
@@ -1678,6 +1712,12 @@ body.edit-mode{background:var(--bg)!important}
 <div class="inp-panel">
   <div class="sec">🏪 유통플랫폼 2026E 목표값</div>
   <div class="help">엑셀 유통플랫폼 시트 기준값. 항목을 직접 수정할 수 있습니다.</div>
+  <div style="display:flex;gap:6px;margin:8px 0">
+    <button onclick="exportDPInputTemplate()" style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid rgba(59,130,246,.3);background:rgba(59,130,246,.08);color:var(--ac2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📥 입력시트 다운로드</button>
+    <label style="flex:1;padding:6px 10px;border-radius:6px;border:1px solid rgba(16,185,129,.3);background:rgba(16,185,129,.08);color:var(--gn2);font-size:11px;font-weight:600;cursor:pointer;text-align:center;font-family:inherit">📤 엑셀 업로드
+      <input type="file" accept=".xlsx,.xls" style="display:none" onchange="importDPInputExcel(this.files[0])">
+    </label>
+  </div>
 
   <div style="margin-top:10px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--t2);margin-bottom:12px">
     📋 <b>소스 기준</b>: 26년 경영계획 v8.1 유통플랫폼 시트<br>
@@ -3415,6 +3455,29 @@ async function loadDataJSON() {
       fee_enterprise_monthly:   wm('mgmt_fee_단가_기업/미8군/IoT', yr),
       fee_biz_annual:           wt('mgmt_fee_단가_Biz(법인영업)', yr),
       fee_biz_monthly:          wm('mgmt_fee_단가_Biz(법인영업)', yr),
+      // ★ v93: 채널별 대당매출/대당정책 (data.json 직접 매핑)
+      rev_unit_wholesale_annual:  wt('대당매출_도매', yr),
+      rev_unit_wholesale_monthly: wm('대당매출_도매', yr),
+      rev_unit_retail_annual:     wt('대당매출_소매', yr),
+      rev_unit_retail_monthly:    wm('대당매출_소매', yr),
+      rev_unit_digital_annual:    wt('대당매출_kt닷컴', yr),
+      rev_unit_digital_monthly:   wm('대당매출_kt닷컴', yr),
+      rev_unit_enterprise_annual: wt('대당매출_기업', yr),
+      rev_unit_enterprise_monthly:wm('대당매출_기업', yr),
+      rev_unit_biz_annual:        wt('대당매출_Biz', yr),
+      rev_unit_biz_monthly:       wm('대당매출_Biz', yr),
+      pol_unit_wholesale_annual:  wt('대당정책_도매', yr),
+      pol_unit_wholesale_monthly: wm('대당정책_도매', yr),
+      pol_unit_retail_annual:     wt('대당정책_소매', yr),
+      pol_unit_retail_monthly:    wm('대당정책_소매', yr),
+      pol_unit_digital_annual:    wt('대당정책_kt닷컴', yr),
+      pol_unit_digital_monthly:   wm('대당정책_kt닷컴', yr),
+      pol_unit_enterprise_annual: wt('대당정책_기업', yr),
+      pol_unit_enterprise_monthly:wm('대당정책_기업', yr),
+      pol_unit_iot_annual:        wt('대당정책_IoT', yr),
+      pol_unit_iot_monthly:       wm('대당정책_IoT', yr),
+      pol_unit_biz_annual:        wt('대당정책_Biz', yr),
+      pol_unit_biz_monthly:       wm('대당정책_Biz', yr),
     };
   }
 
@@ -6753,6 +6816,30 @@ function f27Load(){
 
 /* ── 계획 데이터 소스 매핑 ── */
 function f27GetPlan26(key){
+  // ★ v93: Live Sim 모드 — 현재 26E 시뮬 결과를 기준으로 사용
+  if(F27._useLiveSim){
+    try{
+      const _plv2 = simPLv2();
+      const _t = _plv2.tot, _tel = _plv2.tel;
+      const _lb = simLabor(), _ox = simOpex();
+      const _dp = simDistPlatform();
+      const _liveMap = {
+        rev:{ann:_t.rev_ann,mon:_t.rev_mon}, prod:{ann:_t.prod_ann,mon:_t.prod_mon},
+        comm:{ann:_t.comm_ann,mon:_t.comm_mon}, pol:{ann:_t.pol_ann,mon:_t.pol_mon},
+        mgmt:{ann:_t.mgmt_ann,mon:_t.mgmt_mon}, etc:{ann:_t.etc_ann,mon:_t.etc_mon},
+        cogs:{ann:_t.cogs_ann,mon:_t.cogs_mon}, gp:{ann:_t.gp_ann,mon:_t.gp_mon},
+        sga:{ann:_t.sga_ann,mon:_t.sga_mon}, labor:{ann:_t.labor_ann,mon:_t.labor_mon},
+        mkt:{ann:_t.mkt_ann,mon:_t.mkt_mon}, rent:{ann:_t.rent_ann,mon:_t.rent_mon},
+        dep:{ann:_t.dep_ann,mon:_t.dep_mon}, opex:{ann:_t.opex_ann,mon:_t.opex_mon},
+        op:{ann:_t.op_ann,mon:_t.op_mon},
+        tel_rev:{ann:_tel.rev_ann,mon:_tel.rev_mon}, tel_op:{ann:_tel.op_ann,mon:_tel.op_mon},
+        tel_mgmt:{ann:_tel.mgmt_ann,mon:_tel.mgmt_mon}, tel_pol:{ann:_tel.pol_ann,mon:_tel.pol_mon},
+        dist_rev:{ann:_dp.tot.rev,mon:_dp.tot.rev_mon}, dist_op:{ann:_dp.tot.op,mon:_dp.tot.op_mon},
+        dist_labor:{ann:_dp.tot.labor,mon:_dp.tot.labor_mon},
+      };
+      if(_liveMap[key]) return _liveMap[key];
+    }catch(e){}
+  }
   const P = PLAN_2026_FULL, D = PLAN_DIST_FULL, L = PLAN_LABOR_FULL, O = PLAN_OPEX_FULL;
   const T = PLAN_TEL_FULL;
   const map = {
@@ -10509,7 +10596,14 @@ function updateTdVsSimCard(){
 const SCENARIO_LS = 'ktms_scenarios_v92';
 const SCENARIO_SLOTS = 3;
 function _scenarioSave(slot){
-  const name = prompt(`시나리오 ${slot} 이름:`, `시나리오 ${slot}`);
+  // ★ v93: 자동 요약 태그 생성
+  const _pl = simPLv2();
+  const _w = simWireless();
+  const _capaK = Math.round((_w.capaTotalMon_noIoT||[]).reduce((a,b)=>a+b,0)/10000);
+  const _pu = Math.round((_w.prodRevTotal||0)*1e6 / ((_w.capaTotalMon_noIoT||[]).reduce((a,b)=>a+b,0)||670000));
+  const _autoTag = `CAPA ${_capaK}만 | PU ${Math.round(_pu/10000)}만원 | OP ${fmt(Math.round(_pl.tot.op_ann))}`;
+  const defaultName = `${slot}안: ${_autoTag}`;
+  const name = prompt(`시나리오 ${slot} 이름:`, defaultName);
   if(!name) return;
   try{
     const all = JSON.parse(localStorage.getItem(SCENARIO_LS)||'{}');
@@ -10518,13 +10612,17 @@ function _scenarioSave(slot){
       ce: JSON.parse(JSON.stringify(_CE||{})),
       mon: JSON.parse(JSON.stringify(MON_MANUAL||{})),
       td: {rev:_TD.rev, op:_TD.op, capa:_TD.capa, active:_TD.active, bridged:_TD.bridged},
+      // ★ v93: P&L 스냅샷 저장 (비교표용)
+      snapshot: {
+        rev: Math.round(_pl.tot.rev_ann), op: Math.round(_pl.tot.op_ann),
+        gp: Math.round(_pl.tot.gp_ann), labor: Math.round(_pl.tot.labor_ann),
+        capa: _capaK, pu: _pu,
+        opm: _pl.tot.rev_ann ? (_pl.tot.op_ann/_pl.tot.rev_ann*100) : 0,
+      },
     };
     localStorage.setItem(SCENARIO_LS, JSON.stringify(all));
     _scenarioRenderBtns();
-    const t=document.createElement('div');
-    t.style.cssText='position:fixed;top:60px;right:14px;z-index:9999;padding:10px 16px;background:#059669;color:#fff;border-radius:8px;font-size:12px;font-weight:700';
-    t.textContent=`💾 「${name}」 저장 완료`;
-    document.body.appendChild(t); setTimeout(()=>t.remove(),2500);
+    _toast(`💾 「${name}」 저장 완료 (${_autoTag})`, '#059669');
   }catch(e){alert('저장 실패: '+e.message);}
 }
 function _scenarioLoad(slot){
@@ -10564,10 +10662,12 @@ function _scenarioRenderBtns(){
     el.innerHTML = Array.from({length:SCENARIO_SLOTS},(_,i)=>i+1).map(slot=>{
       const sc = all[slot];
       const ts = sc ? new Date(sc.ts).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+      const sn = sc?.snapshot;
+      const snSummary = sn ? `<div style="font-size:9px;color:#7c3aed;margin-top:2px">매출 ${fmt(sn.rev)} | OP ${fmt(sn.op)} | OPM ${sn.opm?.toFixed(1)||'-'}%</div>` : '';
       return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--bd)">
         <div style="flex:1;min-width:0">
           <div style="font-size:11px;font-weight:700;color:var(--t1)">${sc?`💾 ${sc.name}`:`슬롯 ${slot} (비어있음)`}</div>
-          ${sc?`<div style="font-size:10px;color:var(--t3)">${ts}</div>`:''}
+          ${sc?`<div style="font-size:10px;color:var(--t3)">${ts}</div>`:''}${snSummary}
         </div>
         <button onclick="_scenarioLoad(${slot})" style="padding:3px 8px;border-radius:5px;font-size:10px;${sc?'background:rgba(59,130,246,.1);color:var(--ac2);border:1px solid rgba(59,130,246,.25);cursor:pointer':'opacity:.35;cursor:default;background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb'}" ${sc?'':'disabled'}>불러오기</button>
         <button onclick="_scenarioSave(${slot})" style="padding:3px 8px;border-radius:5px;font-size:10px;background:rgba(16,185,129,.1);color:var(--gn2);border:1px solid rgba(16,185,129,.25);cursor:pointer">저장</button>
@@ -11112,7 +11212,8 @@ function _hasUserAdj(){
   // ★ pl_adj(브릿지 조정)는 bottom-up full computation 대신 passthrough+adj로 처리
   // bottom-up은 CE 편집(무선/인건비 등 탭 직접 수정)시에만 필요
   const hasCE = typeof _CE!=='undefined' && Object.keys(_CE).some(k=>
-    ['wireless','wireline','labor','infra','depre','opex','etcfee','distplatform'].some(s=>k.startsWith(s+'|'))
+    ['wireless','wireline','labor','infra','depre','opex','etcfee','distplatform',
+     'dpsec_goodbuy','dpsec_siyon','dpsec_coconut','dpsec_aslog','dpsec_rental','dpsec_otherbiz'].some(s=>k.startsWith(s+'|'))
   );
   return hasCE;
 }
@@ -11144,8 +11245,24 @@ function simPLv2(){
       const _tr=(tAnn,pAnn)=>pAnn>0?tAnn/pAnn:0;
       const rRev  =_tr(PLAN_TEL_FULL.rev.ann,  PLAN_2026_FULL.rev.ann);  // 0.9268
       const rCogs =_tr(PLAN_TEL_FULL.cogs.ann, PLAN_2026_FULL.cogs.ann); // 0.9175
-      // ★ SGA: 유통 고정값 차감으로 통신 산출 (pl_adj delta가 전부 통신에 반영)
-      const _DD=PLAN_DIST_FULL, _z12=Array(12).fill(0);
+      // ★ SGA: 유통 값 차감으로 통신 산출 (pl_adj delta가 전부 통신에 반영)
+      // ★ v93: DP 탭 CE 편집이 있으면 simDistPlatform() 동적 결과 사용
+      const _hasDistCE = typeof _CE!=='undefined' && Object.keys(_CE).some(k=>k.startsWith('dpsec_'));
+      const _DD = _hasDistCE ? (()=>{
+        const _dpR=simDistPlatform();
+        const _t=_dpR.tot;
+        return {labor:{ann:_t.labor,mon:_t.labor_mon},rent:{ann:_t.rent,mon:_t.rent_mon},
+                dep:{ann:_t.dep||0,mon:_t.dep_mon||Array(12).fill(0)},
+                fee:{ann:_t.fee,mon:_t.fee_mon},opex:{ann:_t.opex||0,mon:_t.opex_mon||Array(12).fill(0)},
+                transport:{ann:_t.transport||0,mon:_t.transport_mon||Array(12).fill(0)},
+                supplies:{ann:_t.supplies||0,mon:_t.supplies_mon||Array(12).fill(0)},
+                promo:{ann:_t.promo||0,mon:_t.promo_mon||Array(12).fill(0)},
+                ad:{ann:_t.ad||0,mon:_t.ad_mon||Array(12).fill(0)},
+                rev:{ann:_t.rev,mon:_t.rev_mon},cogs:{ann:_t.cogs,mon:_t.cogs_mon},
+                gp:{ann:_t.gp,mon:_t.gp_mon},sga:{ann:_t.sga,mon:_t.sga_mon},
+                op:{ann:_t.op,mon:_t.op_mon}};
+      })() : PLAN_DIST_FULL;
+      const _z12=Array(12).fill(0);
       const _dg=k=>((_DD[k]?.mon)||_z12).slice();
       // 유통 마케팅 = promo(판촉/회의) + ad(광고홍보, 통상 0)
       const dist_mkt_fixed  =_dg('promo').map((v,i)=>v+(_DD.ad?.mon[i]||0));
@@ -11274,39 +11391,38 @@ function simPLv2(){
 
   // === 통신 판관비 (연간=각 탭, 월별=소스패턴 LRM) ===
   const lb=simLabor();
-  // ★ 통신 인건비 = 전사 - 유통플랫폼 (simLabor는 전사 기준)
-  const _DIST_LABOR_ANN = PLAN_DIST_FULL.labor.ann;  // ★ v91: PLAN_DIST_FULL 참조
+  // ★ v93: 유통플랫폼 값을 simDistPlatform()에서 동적으로 가져옴 (CE 편집 즉시 반영)
+  const _dp = simDistPlatform();
+  const _DIST_LABOR_ANN = Math.round(_dp.tot.labor || PLAN_DIST_FULL.labor.ann);
+  const _DIST_LABOR_MON = _dp.tot.labor_mon || PLAN_DIST_FULL.labor.mon.slice();
   const tel_labor_ann=Math.round(Math.max(0, lb.total_ann - _DIST_LABOR_ANN));
   let tel_labor_mon=lrm(TEL_SRC.labor, tel_labor_ann);
 
   const ifr=simInfra();
-  // ★ 통신 임차관리비 = 전사 임차관리비 - 유통플랫폼 임차(175)
-  const _DIST_RENT_ANN = PLAN_DIST_FULL.rent.ann;   // ★ v91: PLAN_DIST_FULL 참조
+  // ★ v93: 유통 임차도 simDistPlatform() 동적 참조
+  const _DIST_RENT_ANN = Math.round(_dp.tot.rent || PLAN_DIST_FULL.rent.ann);
+  const _DIST_RENT_MON = _dp.tot.rent_mon || PLAN_DIST_FULL.rent.mon.slice();
   const tel_rent_ann=Math.round(Math.max(0, (ifr.total_ann||0) - _DIST_RENT_ANN));
   let tel_rent_mon=(ifr.total_mon||Array(12).fill(0)).slice();
-  // 월별도 차감 (균등 배분)
-  const _distRentMon = _DIST_RENT_ANN / 12;
-  tel_rent_mon = tel_rent_mon.map(v=>Math.round(v - _distRentMon));
+  // 월별도 차감 (유통 월별값 직접 사용)
+  tel_rent_mon = tel_rent_mon.map((v,mi)=>Math.round(v - (_DIST_RENT_MON[mi]||_DIST_RENT_ANN/12)));
 
   const depr=simDepre();
   const tel_dep_ann=Math.round(depr.tel_ann);
   let tel_dep_mon=lrm(TEL_SRC.dep, tel_dep_ann);
 
   const opx=simOpex();
-  // ★ 통신 기타운영비 = 전사 기타운영비 - 유통플랫폼 기타운영비성격(지급수수료3482+기타운영비492+운반비96=4070)
-  // simDistPlatform()에서 fee/opex/transport 월별 직접 차감
-  const _dp2 = simDistPlatform();
-  // dp2.tot의 실제 키: fee_mon, opex_mon, transport_mon
-  const _dpFeeMon  = _dp2.tot.fee_mon      || Array(12).fill(Math.round(PLAN_DIST_FULL.fee.ann/12));
-  const _dpOpexMon = _dp2.tot.opex_mon     || Array(12).fill(Math.round(PLAN_DIST_FULL.opex.ann/12));
-  const _dpTransMon= _dp2.tot.transport_mon|| Array(12).fill(Math.round(PLAN_DIST_FULL.transport.ann/12));
+  // ★ v93: 유통 기타운영비도 simDistPlatform() 동적 참조
+  const _dpFeeMon  = _dp.tot.fee_mon      || PLAN_DIST_FULL.fee.mon.slice();
+  const _dpOpexMon = _dp.tot.opex_mon     || PLAN_DIST_FULL.opex.mon.slice();
+  const _dpTransMon= _dp.tot.transport_mon|| PLAN_DIST_FULL.transport.mon.slice();
+  const _dpSuppMon = _dp.tot.supplies_mon || (PLAN_DIST_FULL.supplies?.mon||Array(12).fill(0)).slice();
   // 유통 기타운영비 성격 = 지급수수료 + 기타운영비 + 운반비 + 소모품비
-  // ★ PLAN_DIST_FULL 고정값 사용 (simDistPlatform 변동으로 음수 방지)
-  const _DIST_OPEX_ANN = Math.round(PLAN_DIST_FULL.fee.ann + PLAN_DIST_FULL.opex.ann + PLAN_DIST_FULL.transport.ann + (PLAN_DIST_FULL.supplies?.ann||0)); // 3482+492+96+4=4074
+  const _DIST_OPEX_ANN = Math.round((_dp.tot.fee||0) + (_dp.tot.opex||0) + (_dp.tot.transport||0) + (_dp.tot.supplies||0));
   const tel_opex_ann=Math.round(Math.max(0, opx.total_ann - _DIST_OPEX_ANN));
-  // 월별: PLAN_DIST_FULL 고정 비율로 차감 (음수 방지)
-  const _distOpexMonFixed = PLAN_DIST_FULL.fee.mon.map((v,mi)=>
-    Math.round(v + (PLAN_DIST_FULL.opex.mon[mi]||0) + (PLAN_DIST_FULL.transport.mon[mi]||0) + (PLAN_DIST_FULL.supplies?.mon[mi]||0)));
+  // 월별: simDistPlatform 동적 월별값으로 차감 (음수 방지)
+  const _distOpexMonFixed = _dpFeeMon.map((v,mi)=>
+    Math.round(v + (_dpOpexMon[mi]||0) + (_dpTransMon[mi]||0) + (_dpSuppMon[mi]||0)));
   let tel_opex_mon=opx.total_mon.map((v,mi)=>Math.max(0, Math.round(v - (_distOpexMonFixed[mi]||0))));
   const _distOpexMon = _DIST_OPEX_ANN / 12; // 하위 호환
   // ★ 통신 SGA: 엑셀 기준 PLAN_TEL_FULL.sga + 각 항목 delta
@@ -11330,7 +11446,8 @@ function simPLv2(){
   const tel_op_ann=tel_op_mon.reduce((a,b)=>a+b,0);
 
   // === 유통플랫폼 (🔗 유통플랫폼 탭 자동연동) ===
-  const dp=simDistPlatform();
+  // ★ v93: _dp는 위에서 이미 호출됨 — 중복 호출 제거
+  const dp=_dp;
   let dist_rev_ann=dp.tot.rev, dist_rev_mon=dp.tot.rev_mon.slice();
   let dist_cogs_ann=dp.tot.cogs, dist_cogs_mon=dp.tot.cogs_mon.slice();
   let dist_gp_ann=dp.tot.gp, dist_gp_mon=dp.tot.gp_mon.slice();
@@ -11749,6 +11866,19 @@ function plTable(rows26E, hRows, H_ref){
     const r=rows26E[i];
     // 접힌 섹션의 자식 행은 숨김
     if(_isRowHidden(r)) continue;
+
+    // ★ v93: 대당/인당 파생 행 — 별도 렌더
+    if(r.derived){
+      const _uv = r.v26||0;
+      const _uf = typeof _uv==='number'&&_uv>=1000 ? Math.round(_uv).toLocaleString('ko-KR') : (typeof _uv==='number'? _uv.toLocaleString('ko-KR',{maximumFractionDigits:1}) : _uv);
+      tbl+=`<tr class="${r.cls||'r-unit'}"><td>${r.l}</td>`;
+      YRS.forEach(()=>tbl+=`<td style="color:#c4b5fd">—</td>`);
+      tbl+=`<td style="font-weight:600;color:#7c3aed">${_uf} <span style="font-size:8px;color:#a78bfa">${r.unitLabel||''}</span></td>`;
+      if(show27E) tbl+=`<td>—</td>`;
+      tbl+=`<td></td><td></td></tr>`;
+      continue;
+    }
+
     const h = r.hk ? (H_ref[r.hk]||[]) : (H_SUB[(r.l||'').trim().replace(/^\s+/,'')]||[]);
     const lnk=r.lnk&&HK_TAB[r.hk];
     const rowCls=`${r.cls||''}${lnk?' hover-row':''}`;
@@ -12025,6 +12155,26 @@ function renderPL(){
   let H_ref, rows26E, title, opm_cur, opm_prev, rev26, op26;
   const MN12=MONTHS_KO;
 
+  // ★ v93: 대당/인당 파생 지표 공통 계산 함수
+  const _wSim = simWireless();
+  const _capaNoIoT = (_wSim.capaTotalMon_noIoT||[]).reduce((a,b)=>a+b,0) || 670000;
+  const _capaChAnn = {}; // 채널별 CAPA 연간 합계
+  W_CH.forEach(ch=>{ _capaChAnn[ch] = (_wSim.capaMon[ch]||[]).reduce((a,b)=>a+b,0); });
+  const _hcAvg = (LB_UNIT_HIST.hc_total['2026E']||[]).reduce((a,b)=>a+b,0)/12 || 2135;
+  const _hcSalAvg = (LB_UNIT_HIST.hc_sal['2026E']||[]).reduce((a,b)=>a+b,0)/12 || 1940;
+  // 대당 단가 계산 헬퍼 (원/건)
+  const _unitCalc = (annMil, capaDenom) => capaDenom > 0 ? Math.round(annMil * 1e6 / capaDenom) : 0;
+  // 대당 행 포맷 (천원 단위)
+  const _unitFmt = (v) => v != null ? Math.round(v).toLocaleString('ko-KR') + '원' : '-';
+  // 채널별 대당 히스토리 가져오기
+  const _chUnitHist = (chKey, metric) => {
+    if(!WIRELESS_HIST_EXCEL) return [null,null,null,null];
+    return ['2022','2023','2024','2025'].map(yr => {
+      const d = WIRELESS_HIST_EXCEL[yr];
+      return d ? d[metric + '_' + chKey + '_annual'] : null;
+    });
+  };
+
   if(tab==='tel'){
     H_ref=H_TEL; rev26=s.tel.rev_ann; op26=s.tel.op_ann;
     opm_cur=rev26?op26/rev26:0; opm_prev=H_TEL.op[3]/H_TEL.rev[3];
@@ -12041,8 +12191,12 @@ function renderPL(){
     rows26E=[
       {l:'I. 매출',               hk:'rev',   v26:s.tel.rev_ann,          mon26:s.tel.rev_mon,     cls:'r-tot'},
       {l:'  상품매출',             hk:'prod',  v26:s.tel.prod_ann,         mon26:s.tel.prod_mon,    lnk:true, cls:'r-sub'},
+      {l:'    └ 대당매출',         hk:null,    v26:_unitCalc(s.tel.prod_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'      도매 대당매출',    hk:null,    v26:_unitCalc(s.tel.prod_ann*(_capaChAnn['도매']||0)/_capaNoIoT, _capaChAnn['도매']||1), mon26:null, cls:'r-unit-ch', derived:true},
+      {l:'      소매 대당매출',    hk:null,    v26:_unitCalc(s.tel.prod_ann*(_capaChAnn['소매']||0)/_capaNoIoT, _capaChAnn['소매']||1), mon26:null, cls:'r-unit-ch', derived:true},
       {l:'  수수료수입',           hk:'comm',  v26:s.tel.comm_ann,         mon26:s.tel.comm_mon,    cls:'r-sub'},
       {l:'    정책수수료',         hk:'pol',   v26:s.tel.pol_ann,          mon26:s.tel.pol_mon,     lnk:true, cls:'r-sub2'},
+      {l:'      └ 대당정책수수료', hk:null,    v26:_unitCalc(s._drv.w_pol_total, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'      무선 정책수수료', hk:null,    v26:s._drv.w_pol_total,     mon26:s._drv.w_pol_mon,  cls:'r-sub3'},
       {l:'      유선 정책수수료', hk:null,    v26:s._drv.wl_pol_ann,      mon26:s._drv.wl_pol_mon, cls:'r-sub3'},
       {l:'    관리수수료',         hk:'mgmt',  v26:s.tel.mgmt_ann,         mon26:s.tel.mgmt_mon,    lnk:true, cls:'r-sub2'},
@@ -12050,9 +12204,12 @@ function renderPL(){
       {l:'      유선 관리수수료', hk:null,    v26:s._drv.wl_mgmt_total,   mon26:s._drv.wl_mgmt_mon,cls:'r-sub3'},
       {l:'    기타수수료',         hk:'etc',   v26:s.tel.etc_ann,          mon26:s.tel.etc_mon,     lnk:true, cls:'r-sub2'},
       {l:'II. 매출원가',           hk:'cogs',  v26:s.tel.cogs_ann,         mon26:s.tel.cogs_mon,    lnk:true, cls:'r-tot'},
+      {l:'    └ 대당원가',         hk:null,    v26:_unitCalc(s.tel.cogs_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'III. 매출총이익',        hk:'gp',    v26:s.tel.gp_ann,           mon26:s.tel.gp_mon,      cls:'r-gp'},
+      {l:'    └ 건당판매손익',     hk:null,    v26:_unitCalc(s.tel.gp_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'IV. 판관비',             hk:'sga',   v26:s.tel.sga_ann,          mon26:s.tel.sga_mon,     cls:'r-sga'},
       {l:'  인건비',               hk:'labor', v26:s.tel.labor_ann,        mon26:s.tel.labor_mon,   lnk:true, cls:'r-sub'},
+      {l:'    └ 인당인건비',       hk:null,    v26:Math.round(s.tel.labor_ann/_hcAvg*100)/100, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
       {l:'    일반직 급여',        hk:null,    v26:_lbGenAnn,              mon26:lb.gen_mon,        cls:'r-sub2', lnk:true},
       {l:'    영업직군 급여',      hk:null,    v26:_lbSalAnn,              mon26:lb.sal_mon,        cls:'r-sub2', lnk:true},
       {l:'    특별격려금',         hk:null,    v26:_lbBonAnn,              mon26:lb.bonus_arr,      cls:'r-sub2'},
@@ -12079,56 +12236,68 @@ function renderPL(){
       {l:'    차량유지비',         hk:null,    v26:ox.car,                 mon26:ox.car_mon,        cls:'r-sub2'},
       {l:'    세금과공과',         hk:null,    v26:ox.tax_pub,             mon26:ox.tax_mon,        cls:'r-sub2'},
       {l:'V. 영업이익',            hk:'op',    v26:s.tel.op_ann,           mon26:s.tel.op_mon,      cls:'r-op'},
+      {l:'    └ 건당영업이익',     hk:null,    v26:_unitCalc(s.tel.op_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
     ];
   } else if(tab==='dist'){
     H_ref=H_DIST; rev26=s.dist.rev_ann; op26=s.dist.op_ann;
     opm_cur=rev26?op26/rev26:0; opm_prev=H_DIST.op[3]/H_DIST.rev[3];
     title='🏪 유통플랫폼 손익계산서';
+    // ★ v93: simDistPlatform() 동적 결과 사용 (CE 편집 즉시 반영)
     const dpd=simDistPlatform();
-    const PD=PLAN_DIST_FULL;
+    const _dt=dpd.tot;
     rows26E=[
-      {l:'I. 매출',               hk:'rev',        v26:PD.rev.ann,      mon26:PD.rev.mon,       cls:'r-tot'},
-      {l:'  상품서비스매출',      hk:'prod',       v26:PD.prod.ann,     mon26:PD.prod.mon,      cls:'r-sub'},
-      {l:'  광고 수익',           hk:null,         v26:PD.ad.ann,       mon26:PD.ad.mon,        cls:'r-sub2'},
-      {l:'  시연폰 매입 장려금',  hk:null,         v26:PD.demo.ann,     mon26:PD.demo.mon,      cls:'r-sub2'},
-      {l:'  수수료(정책)',        hk:'pol',        v26:PD.pol.ann,      mon26:PD.pol.mon,       cls:'r-sub2'},
-      {l:'  수수료(기타)',        hk:'etc',        v26:PD.etc.ann,      mon26:PD.etc.mon,       cls:'r-sub2'},
-      {l:'II. 매출원가',          hk:'cogs',       v26:PD.cogs.ann,     mon26:PD.cogs.mon,      cls:'r-tot'},
-      {l:'  상품원가',            hk:'cogs_p',     v26:PD.cogs_p.ann,   mon26:PD.cogs_p.mon,    cls:'r-sub'},
-      {l:'  매각원가',            hk:'cogs_s',     v26:PD.cogs_s.ann,   mon26:PD.cogs_s.mon,    cls:'r-sub'},
-      {l:'III. 매출총이익',       hk:'gp',         v26:PD.gp.ann,       mon26:PD.gp.mon,        cls:'r-gp'},
-      {l:'IV. 판관비 (총)',       hk:'sga',        v26:PD.sga.ann,      mon26:PD.sga.mon,       cls:'r-sga'},
-      {l:'  인건비',              hk:'labor',      v26:PD.labor.ann,    mon26:PD.labor.mon,     lnk:true, cls:'r-sub'},
-      {l:'  임차료',              hk:'rent',       v26:PD.rent.ann,     mon26:PD.rent.mon,      cls:'r-sub2'},
-      {l:'  지급수수료',          hk:'fee',        v26:PD.fee.ann,      mon26:PD.fee.mon,       cls:'r-sub2'},
-      {l:'  판촉비/회의비',       hk:'promo',      v26:PD.promo.ann,    mon26:PD.promo.mon,     cls:'r-sub2'},
-      {l:'  운반비',              hk:'transport',  v26:PD.transport.ann,mon26:PD.transport.mon, cls:'r-sub2'},
-      {l:'  기타운영비',          hk:'opex',       v26:PD.opex.ann,     mon26:PD.opex.mon,      lnk:true, cls:'r-sub2'},
-      {l:'  감가상각비',          hk:'dep',        v26:PD.dep.ann,      mon26:PD.dep.mon,       lnk:true, cls:'r-sub2'},
-      {l:'V. 영업이익',           hk:'op',         v26:PD.op.ann,       mon26:PD.op.mon,        cls:'r-op'},
+      {l:'I. 매출',               hk:'rev',        v26:Math.round(_dt.rev),          mon26:_dt.rev_mon,       cls:'r-tot'},
+      {l:'  상품서비스매출',      hk:'prod',       v26:Math.round(_dt.prod),         mon26:_dt.prod_mon,      cls:'r-sub'},
+      {l:'  광고 수익',           hk:null,         v26:Math.round(_dt.ad||0),        mon26:_dt.ad_mon,        cls:'r-sub2'},
+      {l:'  시연폰 매입 장려금',  hk:null,         v26:Math.round(_dt.demo||0),      mon26:_dt.demo_mon,      cls:'r-sub2'},
+      {l:'  수수료(정책)',        hk:'pol',        v26:Math.round(_dt.pol||0),       mon26:_dt.pol_mon,       cls:'r-sub2'},
+      {l:'  수수료(기타)',        hk:'etc',        v26:Math.round(_dt.etc||0),       mon26:_dt.etc_mon,       cls:'r-sub2'},
+      {l:'II. 매출원가',          hk:'cogs',       v26:Math.round(_dt.cogs),         mon26:_dt.cogs_mon,      cls:'r-tot'},
+      {l:'  상품원가',            hk:'cogs_p',     v26:Math.round(_dt.prod_cogs||0), mon26:_dt.prod_cogs_mon, cls:'r-sub'},
+      {l:'  매각원가',            hk:'cogs_s',     v26:Math.round(_dt.sale_cogs||0), mon26:_dt.sale_cogs_mon, cls:'r-sub'},
+      {l:'III. 매출총이익',       hk:'gp',         v26:Math.round(_dt.gp),           mon26:_dt.gp_mon,        cls:'r-gp'},
+      {l:'IV. 판관비 (총)',       hk:'sga',        v26:Math.round(_dt.sga),          mon26:_dt.sga_mon,       cls:'r-sga'},
+      {l:'  인건비',              hk:'labor',      v26:Math.round(_dt.labor),        mon26:_dt.labor_mon,     lnk:true, cls:'r-sub'},
+      {l:'  임차료',              hk:'rent',       v26:Math.round(_dt.rent),         mon26:_dt.rent_mon,      cls:'r-sub2'},
+      {l:'  지급수수료',          hk:'fee',        v26:Math.round(_dt.fee),          mon26:_dt.fee_mon,       cls:'r-sub2'},
+      {l:'  판촉비/회의비',       hk:'promo',      v26:Math.round(_dt.promo||0),     mon26:_dt.promo_mon,     cls:'r-sub2'},
+      {l:'  운반비',              hk:'transport',  v26:Math.round(_dt.transport||0), mon26:_dt.transport_mon,  cls:'r-sub2'},
+      {l:'  기타운영비',          hk:'opex',       v26:Math.round(_dt.opex||0),      mon26:_dt.opex_mon,      lnk:true, cls:'r-sub2'},
+      {l:'  감가상각비',          hk:'dep',        v26:Math.round(_dt.dep||0),       mon26:_dt.dep_mon,       lnk:true, cls:'r-sub2'},
+      {l:'V. 영업이익',           hk:'op',         v26:Math.round(_dt.op),           mon26:_dt.op_mon,        cls:'r-op'},
     ];
   } else {
     H_ref=H_TOT; rev26=s.tot.rev_ann; op26=s.tot.op_ann;
     opm_cur=rev26?op26/rev26:0; opm_prev=H_TOT.op[3]/H_TOT.rev[3];
     title='📊 전사 손익계산서 (종합)';
     const lb2=simLabor(), ox2=simOpex(), ifr2=simInfra(), dep2=simDepre(), dpd=simDistPlatform();
-    // ★ v26 = bottom-up 시뮬 결과 직접 사용 (하위탭 연동)
-    const PD=PLAN_DIST_FULL;
+    // ★ v93: simDistPlatform() 동적 결과 사용 (PD는 이제 하위 호환 alias)
+    const PD={rev:{ann:dpd.tot.rev,mon:dpd.tot.rev_mon},pol:{ann:dpd.tot.pol||0,mon:dpd.tot.pol_mon||Array(12).fill(0)},etc:{ann:dpd.tot.etc||0,mon:dpd.tot.etc_mon||Array(12).fill(0)}};
     const _lb2GenAnn = Math.round(lb2.gen_mon.reduce((a,b)=>a+b,0));
     const _lb2SalAnn = Math.round(lb2.sal_mon.reduce((a,b)=>a+b,0));
     rows26E=[
       {l:'I. 매출',                  hk:'rev',   v26:s.tot.rev_ann,                    mon26:s.tot.rev_mon.slice(),                 cls:'r-tot'},
       {l:'  통신 매출',               hk:null,    v26:s.tel.rev_ann,                    mon26:s.tel.rev_mon,                        cls:'r-sub'},
       {l:'    상품매출',              hk:'prod',  v26:s.tel.prod_ann,                   mon26:s.tel.prod_mon,                       lnk:true, cls:'r-sub2'},
+      {l:'      └ 대당매출(전사)',    hk:null,    v26:_unitCalc(s.tel.prod_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'        도매',              hk:null,    v26:WIRELESS_HIST_EXCEL?.['2025']?.rev_unit_wholesale_annual||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'},
+      {l:'        소매',              hk:null,    v26:WIRELESS_HIST_EXCEL?.['2025']?.rev_unit_retail_annual||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'},
+      {l:'        디지털',            hk:null,    v26:WIRELESS_HIST_EXCEL?.['2025']?.rev_unit_digital_annual||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'},
       {l:'    수수료수입',            hk:null,    v26:s.tel.comm_ann,                   mon26:s.tel.comm_mon,                       cls:'r-sub2'},
       {l:'      정책수수료',          hk:'pol',   v26:s.tel.pol_ann+Math.round(PD.pol.ann), mon26:s.tel.pol_mon.map((v,m)=>v+(PD.pol.mon[m]||0)), lnk:true, cls:'r-sub3'},
+      {l:'        └ 대당정책(전사)',  hk:null,    v26:_unitCalc(s._drv?.w_pol_total||0, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'          도매',            hk:null,    v26:WIRELESS_HIST_EXCEL?.['2025']?.pol_unit_wholesale_annual||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'},
+      {l:'          소매',            hk:null,    v26:WIRELESS_HIST_EXCEL?.['2025']?.pol_unit_retail_annual||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'},
       {l:'      관리수수료',          hk:'mgmt',  v26:s.tel.mgmt_ann,                   mon26:s.tel.mgmt_mon,                       lnk:true, cls:'r-sub3'},
+      {l:'        └ 관리수수료 단가', hk:null,    v26:WIRELESS_HIST_EXCEL?.['2025']?.fee_wholesale_annual||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/매장'},
       {l:'      기타수수료',          hk:'etc',   v26:s.tel.etc_ann+Math.round(PD.etc.ann), mon26:s.tel.etc_mon.map((v,m)=>v+(PD.etc.mon[m]||0)), lnk:true, cls:'r-sub3'},
       {l:'  유통플랫폼 매출',         hk:null,    v26:s.dist.rev_ann,                   mon26:s.dist.rev_mon,                       cls:'r-sub'},
       {l:'II. 매출원가',              hk:'cogs',  v26:s.tot.rev_ann-s.tot.gp_ann,       mon26:s.tot.cogs_mon.slice(),               lnk:true, cls:'r-tot'},
+      {l:'    └ 대당원가(전사)',      hk:null,    v26:_unitCalc(s.tot.rev_ann-s.tot.gp_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'III. 매출총이익',           hk:'gp',    v26:s.tot.gp_ann,                     mon26:s.tot.gp_mon.slice(),                 cls:'r-gp'},
       {l:'IV. 판관비',                hk:'sga',   v26:s.tot.sga_ann,                    mon26:s.tot.sga_mon.slice(),                cls:'r-sga'},
       {l:'  인건비',                  hk:'labor', v26:s.tot.labor_ann,                  mon26:s.tot.labor_mon||s.tel.labor_mon,     lnk:true, cls:'r-sub'},
+      {l:'    └ 인당인건비(전사)',    hk:null,    v26:Math.round(s.tot.labor_ann/_hcAvg*100)/100, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
       {l:'    통신 인건비 소계',      hk:null,    v26:s.tel.labor_ann,                  mon26:s.tel.labor_mon,                      cls:'r-sub2'},
       {l:'      일반직 급여',         hk:null,    v26:_lb2GenAnn,                       mon26:lb2.gen_mon,                          cls:'r-sub3', lnk:true},
       {l:'      영업직군 급여',       hk:null,    v26:_lb2SalAnn,                       mon26:lb2.sal_mon,                          cls:'r-sub3', lnk:true},
@@ -12165,6 +12334,7 @@ function renderPL(){
       {l:'      세금과공과',          hk:null,    v26:ox2.tax_pub,                      mon26:ox2.tax_mon,                          cls:'r-sub3'},
       {l:'    유통플랫폼 기타운영비', hk:null,    v26:s.tot.dist_opex_ann||0,           mon26:null,                                 cls:'r-sub2'},
       {l:'V. 영업이익',               hk:'op',    v26:s.tot.op_ann,                     mon26:s.tot.op_mon.slice(),                 cls:'r-op'},
+      {l:'    └ 건당영업이익(전사)',  hk:null,    v26:_unitCalc(s.tot.op_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'  통신 영업이익',            hk:null,    v26:s.tel.op_ann,                     mon26:s.tel.op_mon,                         cls:'r-sub'},
       {l:'  유통플랫폼 영업이익',      hk:null,    v26:s.dist.op_ann,                    mon26:s.dist.op_mon,                        cls:'r-sub'},
     ];
@@ -24474,6 +24644,207 @@ function markDirty(sheet){
   if(sheet) _dirtySheets.add(sheet);
   else ['pl','wireless','wireline','labor','infra','depre','opex','etcfee','distplatform','verify','dashboard','f27_merged26','f27_forecast','midterm','plan_vs_actual','monthly_track','exec_report','ref_sheets'].forEach(s=>_dirtySheets.add(s));
 }
+// ★ v93: 퀵 파라미터 패널 적용 함수
+function _qpApplyCapa(val){
+  const v = parseFloat(String(val).replace(/,/g,''));
+  if(isNaN(v)) return;
+  const total = Math.round(v * 10000);
+  // 채널별 비율 유지하여 배분
+  const ratio = W_CAPA_CH_SHARE;
+  W_CH.forEach((ch, i)=>{
+    const chVal = Math.round(total * ratio[i]);
+    const el = document.getElementById('wc_'+i);
+    if(el) el.value = fmt(chVal);
+  });
+  renderAllSheets();
+  _toast(`CAPA → ${v}만건 적용`, '#f59e0b');
+}
+function _qpApplyPU(val){
+  const v = parseFloat(String(val).replace(/,/g,''));
+  if(isNaN(v)) return;
+  const pu = Math.round(v * 10000);
+  const el = document.getElementById('w_pu');
+  if(el){ el.value = fmt(pu); }
+  W_UNIT_MON.pu = Array(12).fill(pu);
+  renderAllSheets();
+  _toast(`대당매출 → ${v}만원 적용`, '#f59e0b');
+}
+function _qpApplyPol(val){
+  const v = parseFloat(String(val).replace(/,/g,''));
+  if(isNaN(v)) return;
+  const pol = Math.round(v * 10000);
+  const el = document.getElementById('w_pu_pol');
+  if(el){ el.value = fmt(pol); }
+  W_UNIT_MON.pol = Array(12).fill(pol);
+  renderAllSheets();
+  _toast(`대당정책 → ${v}만원 적용`, '#f59e0b');
+}
+function _qpApplyLabor(val){
+  const pct = parseFloat(String(val).replace(/,/g,''));
+  if(isNaN(pct)) return;
+  // pl_adj를 통해 인건비 월별 조정
+  if(!MON_MANUAL.pl_adj) MON_MANUAL.pl_adj = {};
+  const baseLaborAnn = PLAN_2026_FULL.labor.ann;
+  const delta = Math.round(baseLaborAnn * pct / 100);
+  const deltaPerMon = Math.round(delta / 12);
+  MON_MANUAL.pl_adj.labor = Array(12).fill(deltaPerMon);
+  _monSave();
+  renderAllSheets();
+  _toast(`인건비 ${pct>=0?'+':''}${pct}% 적용 (${fmt(delta)})`, '#f59e0b');
+}
+function _qpReset(){
+  // 퀵 패널 초기화
+  const _qpCapa = document.getElementById('_qp_capa');
+  const _qpPU = document.getElementById('_qp_pu');
+  const _qpPol = document.getElementById('_qp_pol');
+  const _qpLabor = document.getElementById('_qp_labor');
+  if(_qpCapa) _qpCapa.value = '67.0';
+  if(_qpPU) _qpPU.value = '70.8';
+  if(_qpPol) _qpPol.value = '24.7';
+  if(_qpLabor) _qpLabor.value = '0';
+  if(MON_MANUAL.pl_adj) delete MON_MANUAL.pl_adj.labor;
+  _monSave();
+  W_UNIT_MON.pu = Array(12).fill(708268);
+  W_UNIT_MON.pol = Array(12).fill(247338);
+  renderAllSheets();
+  _toast('퀵 설정 초기화 완료', '#64748b');
+}
+
+// ★ v93: 크로스-탭 정합성 검증 함수
+function _crossTabValidation(){
+  try{
+    const dp=simDistPlatform();
+    const lb=simLabor();
+    const plv2=simPLv2();
+    const issues=[];
+    // 1. 유통 인건비 정합: simDistPlatform vs simPLv2 차감값
+    const dpLabor=Math.round(dp.tot.labor||0);
+    const telLabor=Math.round(plv2.tel.labor_ann||0);
+    const totLabor=Math.round(plv2.tot.labor_ann||0);
+    if(Math.abs(totLabor - telLabor - dpLabor) > 5)
+      issues.push({tab:'labor',msg:`전사인건비(${fmt(totLabor)}) ≠ 통신(${fmt(telLabor)}) + 유통(${fmt(dpLabor)})`,sev:'warn'});
+    // 2. 유통 매출 정합
+    const dpRev=Math.round(dp.tot.rev||0);
+    const distRev=Math.round(plv2.dist.rev_ann||0);
+    if(Math.abs(dpRev - distRev) > 5)
+      issues.push({tab:'distplatform',msg:`유통매출: DP탭(${fmt(dpRev)}) ≠ 손익(${fmt(distRev)})`,sev:'error'});
+    // 3. 전사 = 통신 + 유통 검증
+    ['rev','op'].forEach(k=>{
+      const tot=Math.round(plv2.tot[k+'_ann']||0);
+      const tel=Math.round(plv2.tel[k+'_ann']||0);
+      const dist=Math.round(plv2.dist[k+'_ann']||0);
+      if(Math.abs(tot-tel-dist) > 5)
+        issues.push({tab:'pl',msg:`전사 ${k}(${fmt(tot)}) ≠ 통신(${fmt(tel)}) + 유통(${fmt(dist)})`,sev:'error'});
+    });
+    // 배너 표시
+    const el=document.getElementById('_crossTabBanner');
+    if(el){
+      if(issues.length===0){
+        el.innerHTML=`<div style="padding:6px 14px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:8px;font-size:11px;color:var(--gn2);font-weight:600">✅ 탭 간 데이터 정합성 확인 완료</div>`;
+      } else {
+        el.innerHTML=`<div style="padding:8px 14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px">
+          <div style="font-size:11px;font-weight:700;color:var(--rd2);margin-bottom:4px">⚠️ 탭 간 데이터 불일치 ${issues.length}건</div>
+          ${issues.map(is=>`<div style="font-size:10px;color:${is.sev==='error'?'var(--rd2)':'var(--or2)'};margin:2px 0">• ${is.msg}</div>`).join('')}
+        </div>`;
+      }
+    }
+    return issues;
+  }catch(e){return[];}
+}
+
+// ★ v93: 유통플랫폼 엑셀 입력 시트 다운로드
+function exportDPInputTemplate(){
+  if(typeof XLSX==='undefined'){ alert('SheetJS 로딩 중...'); return; }
+  const wb=XLSX.utils.book_new();
+  const MO=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  DP_SECTION_KEYS.forEach(tab=>{
+    const conf=DP_SECTION_26[tab];
+    if(!conf) return;
+    const sim=_dpSectionSim(tab);
+    const rows=[['['+conf.title+'] 유통플랫폼 입력 시트'],['항목','연간',...MO]];
+    DP_ROW_DEFS.forEach(def=>{
+      const ann=sim?sim.ann[def.key]||0:conf.data[def.key]||0;
+      const mon=sim?sim.mon[def.key]||Array(12).fill(0):conf.mon[def.key]||Array(12).fill(0);
+      rows.push([def.label, Math.round(ann), ...mon.map(v=>Math.round(v))]);
+    });
+    // 합계 행
+    rows.push([]);
+    const revAnn=sim?sim.ann.rev:conf.data.rev;
+    const cogsAnn=sim?sim.ann.cogs_p+sim.ann.sale_cogs:(conf.data.prod_cogs+conf.data.sale_cogs);
+    const gpAnn=revAnn-cogsAnn;
+    const sgaAnn=sim?sim.ann.labor+sim.ann.rent+sim.ann.fee+sim.ann.transport+sim.ann.promo+sim.ann.opex+sim.ann.dep+sim.ann.supplies:0;
+    rows.push(['매출합계', Math.round(revAnn)]);
+    rows.push(['매출원가합계', Math.round(cogsAnn)]);
+    rows.push(['매출총이익', Math.round(gpAnn)]);
+    rows.push(['판관비합계', Math.round(sgaAnn)]);
+    rows.push(['영업이익', Math.round(gpAnn-sgaAnn)]);
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:20},{wch:12},...MO.map(()=>({wch:10}))];
+    XLSX.utils.book_append_sheet(wb, ws, conf.title.substring(0,31));
+  });
+  // 합계 시트
+  const dp=simDistPlatform();
+  const totRows=[['[유통플랫폼 합계]'],['항목','연간',...MO]];
+  DP_ROW_DEFS.forEach(def=>{
+    const ann=Math.round(dp.tot[def.key]||0);
+    const mon=(dp.tot[def.key+'_mon']||Array(12).fill(0)).map(v=>Math.round(v));
+    totRows.push([def.label, ann, ...mon]);
+  });
+  totRows.push([]);
+  totRows.push(['매출합계', Math.round(dp.tot.rev)]);
+  totRows.push(['매출원가합계', Math.round(dp.tot.cogs)]);
+  totRows.push(['매출총이익', Math.round(dp.tot.gp)]);
+  totRows.push(['판관비합계', Math.round(dp.tot.sga)]);
+  totRows.push(['영업이익', Math.round(dp.tot.op)]);
+  const totWs=XLSX.utils.aoa_to_sheet(totRows);
+  totWs['!cols']=[{wch:20},{wch:12},...MO.map(()=>({wch:10}))];
+  XLSX.utils.book_append_sheet(wb, totWs, '합계');
+  XLSX.writeFile(wb, 'DP_input_template_26E.xlsx');
+  _toast('📥 유통플랫폼 입력시트 다운로드 완료','#059669');
+}
+
+// ★ v93: 유통플랫폼 엑셀 업로드 → CE 오버라이드
+function importDPInputExcel(file){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      let cnt=0;
+      DP_SECTION_KEYS.forEach(tab=>{
+        const conf=DP_SECTION_26[tab];
+        if(!conf) return;
+        const wsName=conf.title.substring(0,31);
+        const ws=wb.Sheets[wsName];
+        if(!ws) return;
+        const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:0});
+        const sheet=_dpSheetName(tab);
+        // 행 2부터 (0=제목, 1=헤더)
+        for(let ri=2;ri<data.length&&ri<2+DP_ROW_DEFS.length;ri++){
+          const def=DP_ROW_DEFS[ri-2];
+          if(!def) continue;
+          const row=data[ri];
+          // 연간값 (col 1)
+          if(row[1]!=null && +row[1]!==0){
+            _CE[sheet+'|'+def.key+'|2026E|ann']={expr:String(+row[1]),value:+row[1]};
+          }
+          // 월별 (col 2~13)
+          for(let m=0;m<12;m++){
+            if(row[m+2]!=null && +row[m+2]!==0){
+              _CE[sheet+'|'+def.key+'|2026E|'+m]={expr:String(+row[m+2]),value:+row[m+2]};
+            }
+          }
+          cnt++;
+        }
+      });
+      _ceSave();
+      renderAllSheets();
+      _toast(`📊 유통플랫폼 ${cnt}개 항목 업로드 완료`,'#1d4ed8');
+    }catch(err){alert('업로드 실패: '+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 function renderAllSheets(){
   markDirty(); // 모든 시트를 dirty로 표시
   const activeSheet = document.querySelector('.sheet.active');
@@ -24497,6 +24868,8 @@ function renderAllSheets(){
   if(activeId!=='pl' && renderMap[activeId]){
     try{ renderMap[activeId](); _dirtySheets.delete(activeId); }catch(_){}
   }
+  // ★ v93: 크로스-탭 정합성 검증 (렌더 후 비동기)
+  setTimeout(_crossTabValidation, 100);
 }
 
 // ── td 생성 헬퍼: 클릭 편집 가능한 td ──
@@ -26214,6 +26587,16 @@ document.addEventListener('click', function(e){
   <div id="f27_merged26_out"></div>
 </div>
 <div id="sheet_f27_forecast" class="sheet sheet-white">
+  <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:#f8fafc;border:1px solid #dde3ee;border-radius:8px;margin-bottom:10px;flex-wrap:wrap">
+    <span style="font-size:11px;font-weight:700;color:var(--t2)">26E 기준값:</span>
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:var(--t2)">
+      <input type="radio" name="f27_base_mode" value="plan" checked onchange="F27._useLiveSim=false;f27Compute();renderF27Forecast()"> 계획원본
+    </label>
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:#7c3aed">
+      <input type="radio" name="f27_base_mode" value="live" onchange="F27._useLiveSim=true;f27Compute();renderF27Forecast()"> 현재 시뮬결과 (Live)
+    </label>
+    <span style="font-size:9px;color:#9ca3af">| Live: CAPA/인건비 등 탭 수정이 27E 예측에 즉시 반영</span>
+  </div>
   <div id="f27_forecast_out"></div>
 </div>
 
