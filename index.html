@@ -24268,31 +24268,62 @@ function loadBMActuals2026(){
   a.op  = a.gp.map(function(v,m){return v-a.sga[m];});
 
   // ══════════════════════════════════════════════════════════
-  // 유통플랫폼: 세부 leaf → 합산 (별도 사업부)
+  // ★ 유통플랫폼: 채널별 Bottom-up 예측 → 합산
+  // 상품채널(굿바이/시연/기타사업)=BM prod YoY, 서비스채널(코코넛/AS물류/임대폰)=안정
   // ══════════════════════════════════════════════════════════
-  var ADJ_rev = adjR(a.rev, P.rev);
-  function dL(pi){ return pi.mon.map(function(v){return Math.round(v*ADJ_rev);}); }
-  a.dist_rev      = dL(D.rev);
-  a.dist_prod     = dL(D.prod);
-  a.dist_ad       = dL(D.ad);
-  a.dist_demo     = dL(D.demo);
-  a.dist_pol      = dL(D.pol);
-  a.dist_etc      = dL(D.etc);
-  a.dist_cogs_p   = dL(D.cogs_p);
-  a.dist_cogs_s   = dL(D.cogs_s);
-  a.dist_cogs     = sumMon(a.dist_cogs_p, a.dist_cogs_s);
-  a.dist_gp       = a.dist_rev.map(function(v,m){return v-a.dist_cogs[m];});
-  a.dist_labor    = dL(D.labor);
-  a.dist_rent     = dL(D.rent);
-  a.dist_fee      = dL(D.fee);
-  a.dist_opex     = dL(D.opex);
-  a.dist_transport= dL(D.transport);
-  a.dist_promo    = dL(D.promo);
-  a.dist_dep      = dL(D.dep);
-  a.dist_supplies = dL(D.supplies);
-  a.dist_sga      = sumMon(a.dist_labor,a.dist_rent,a.dist_fee,a.dist_opex,
-                           a.dist_transport,a.dist_promo,a.dist_dep,a.dist_supplies);
-  a.dist_op       = a.dist_gp.map(function(v,m){return v-a.dist_sga[m];});
+  var CH_DRV = {
+    goodbuy: Y.prod, siyon: Y.prod, otherbiz: Y.prod,
+    coconut: 1.0, aslog: 1.0, rental: 1.0
+  };
+  var FIXED_SGA = {labor:1, rent:1, dep:1, opex:1, supplies:1};
+  var DIST_ITEMS = ['prod','ad','demo','pol','etc','prod_cogs','sale_cogs',
+                    'labor','rent','fee','transport','adpromo','promo','opex','supplies','dep'];
+
+  // 집계용 초기화
+  var distAgg = {};
+  DIST_ITEMS.forEach(function(k){ distAgg[k] = Array.from({length:12}, function(){return 0;}); });
+
+  // 채널별 leaf 예측 & 집계
+  DP_SECTION_KEYS.forEach(function(chKey){
+    var ch = DP_SECTION_26[chKey];
+    if(!ch || !ch.mon) return;
+    var drv = CH_DRV[chKey] || 1.0;
+
+    DIST_ITEMS.forEach(function(item){
+      var base = ch.mon[item];
+      if(!base) return;
+      // 매출/원가 → 채널 드라이버, 변동SGA(fee/transport/promo) → 채널 드라이버, 고정SGA → 1.0
+      var itemDrv = FIXED_SGA[item] ? 1.0 : drv;
+      for(var m=0; m<12; m++){
+        distAgg[item][m] += Math.round((base[m]||0) * itemDrv);
+      }
+    });
+  });
+
+  // dist_* 항목 할당 (leaf)
+  a.dist_prod     = distAgg.prod;
+  a.dist_ad       = distAgg.ad;
+  a.dist_demo     = distAgg.demo;
+  a.dist_pol      = distAgg.pol;
+  a.dist_etc      = distAgg.etc;
+  a.dist_cogs_p   = distAgg.prod_cogs;
+  a.dist_cogs_s   = distAgg.sale_cogs;
+  a.dist_labor    = distAgg.labor;
+  a.dist_rent     = distAgg.rent;
+  a.dist_fee      = distAgg.fee;
+  a.dist_transport= distAgg.transport;
+  a.dist_promo    = sumMon(distAgg.promo, distAgg.adpromo);
+  a.dist_opex     = distAgg.opex;
+  a.dist_supplies = distAgg.supplies;
+  a.dist_dep      = distAgg.dep;
+
+  // 합산: rev = prod+ad+demo+pol+etc, cogs, gp, sga, op (bottom-up)
+  a.dist_rev  = sumMon(a.dist_prod, a.dist_ad, a.dist_demo, a.dist_pol, a.dist_etc);
+  a.dist_cogs = sumMon(a.dist_cogs_p, a.dist_cogs_s);
+  a.dist_gp   = a.dist_rev.map(function(v,m){return v-a.dist_cogs[m];});
+  a.dist_sga  = sumMon(a.dist_labor,a.dist_rent,a.dist_fee,a.dist_opex,
+                       a.dist_transport,a.dist_promo,a.dist_dep,a.dist_supplies);
+  a.dist_op   = a.dist_gp.map(function(v,m){return v-a.dist_sga[m];});
 
   // ══════════════════════════════════════════════════════════
   // 통신 = 전사 - 유통 (역산)
