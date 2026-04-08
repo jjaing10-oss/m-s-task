@@ -2734,6 +2734,23 @@ const MODEL_LAUNCH_CALENDAR=[
 const MONTHS_KO=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 const MONTHS_NUM=['1','2','3','4','5','6','7','8','9','10','11','12'];
 
+// ── 시뮬레이션 주요 상수 (매직넘버 추출) ──
+const SIM_CONFIG={
+  BASE_CAPA_2026: 670000,       // 26E 무선 CAPA 기준 (비IoT)
+  DEBOUNCE_MS: 30,              // CE 편집 디바운스
+  CE_MAX_HISTORY: 50,           // Undo/Redo 최대 스택
+  SCENARIO_SLOTS: 3,            // 시나리오 저장 슬롯 수
+  ACTIVE_RATIO: 0.085,          // Active 가입자 비율 (8.5%)
+  PLAN_REV_ANN: 816287,         // 26E 전사 매출 계획
+  PLAN_OP_ANN: 17151,           // 26E 전사 영업이익 계획
+  PLAN_COGS_ANN: 555461,        // 26E 전사 매출원가 계획
+  WIRELESS_PU: 708268,          // 26E 대당 매출단가 (원)
+  WIRELESS_CU: 760673,          // 26E 대당 원가단가 (원)
+  WIRELESS_POL_PU: 247338,      // 26E 대당 정책수수료 (원)
+  W_POL_ANN_SRC: 165717,        // 26E 무선 정책수수료 연간 소스
+  W_SC_ANN_SRC: 16897,          // 26E 무선 판매수수료 연간 소스
+};
+
 // 2026E 유통플랫폼 월별 소스 계절성 (전사 손익계산서 행136)
 const DIST_REV_S26=[3289,6650,5962,4527,5977,6221,4565,4518,4518,4517,4517,4518];
 const DIST_S26_TOT=DIST_REV_S26.reduce((a,b)=>a+b,0);
@@ -4670,6 +4687,23 @@ function evalMathInput(raw, fallback=0){
 const pv=id=>evalMathInput(document.getElementById(id)?.value,0);
 const sv=(id,v)=>{const el=document.getElementById(id);if(el)el.value=typeof v==='number'?(v%1===0?Math.round(v).toLocaleString('ko-KR'):v.toFixed(1)):v};
 
+// ── 에러 바운더리 래퍼 ──
+function simSafe(fn, label){
+  try{ return fn(); }
+  catch(e){
+    console.error(`[simSafe] ${label||'unknown'}:`, e);
+    _showToast(`계산 오류: ${label||''} — ${e.message}`, 'error');
+    return null;
+  }
+}
+function _showToast(msg, type='info'){
+  const t=document.createElement('div');
+  const bg=type==='error'?'#dc2626':type==='warn'?'#d97706':'#059669';
+  t.style.cssText=`position:fixed;top:70px;right:20px;background:${bg};color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;z-index:9999;max-width:400px;box-shadow:0 4px 12px rgba(0,0,0,.15);pointer-events:none`;
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
 
 // ============================================================
 // Excel 복사/붙여넣기 지원
@@ -23887,9 +23921,21 @@ function clearCE_single(){
   renderAllSheets();
 }
 function renderAllSheets(){
-  renderPL(); renderWireless(); renderWireline();
-  renderLB(); renderIF(); renderDEP(); renderOX(); renderEF(); renderDP();
-  if(document.getElementById('sheet_verify').classList.contains('active')) renderVerify();
+  // 부분 렌더링: 활성 시트 + PL만 갱신 (성능 최적화)
+  const activeSheet = document.querySelector('.sheet.active');
+  const activeId = activeSheet ? activeSheet.id.replace('sheet_','') : 'dashboard';
+  const renderMap = {
+    pl:renderPL, wireless:renderWireless, wireline:renderWireline,
+    labor:renderLB, infra:renderIF, depre:renderDEP, opex:renderOX,
+    etcfee:renderEF, distplatform:renderDP, verify:renderVerify,
+    dashboard:typeof renderDashboard==='function'?renderDashboard:null,
+  };
+  // PL은 항상 갱신 (전사 손익 기반)
+  try{ renderPL(); }catch(_){}
+  // 현재 활성 시트가 PL이 아니면 추가 렌더
+  if(activeId!=='pl' && renderMap[activeId]){
+    try{ renderMap[activeId](); }catch(_){}
+  }
 }
 
 // ── td 생성 헬퍼: 클릭 편집 가능한 td ──
