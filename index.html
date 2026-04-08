@@ -3493,7 +3493,7 @@ function _wirelessFallback2026E(year){
       ⚠️ <div>
         <b>${year}년 무선 실적 원본 데이터가 없습니다.</b>
         아래는 <b>2026E 계획값</b> 기준으로 표시한 참고값입니다.
-        <span style="margin-left:8px;opacity:.7">실적 업로드는 우측 상단 <b>실적 업로드</b> 버튼을 이용하세요.</span>
+        <span style="margin-left:8px;opacity:.7">실적 업로드는 우측 상단 <b>📂 데이터 업로드</b> 버튼을 이용하세요.</span>
       </div>
     </div>
 
@@ -5157,18 +5157,19 @@ function renderDashboard(){
   const kpiWrap=document.getElementById('dashboard_kpis');
   const isPlan=meta.isPlan;
   const isForecast=meta.raw==='2027E';
+  const is2026Act=meta.raw==='2026'; // ★ 2026 실적탭도 시뮬데이터 사용
   const activeYearNum=meta.yearNum;
-  // ★ KPI 카드: 2027E는 forecast, 2026E는 시뮬, 실적은 HIST
-  const _kpiPL=(!isForecast&&isPlan)?simPLv2():null;
+  // ★ KPI 카드: 2027E는 forecast, 2026E/2026은 시뮬, 나머지는 HIST
+  const _kpiPL=(!isForecast&&(isPlan||is2026Act))?simPLv2():null;
   const _f27=isForecast?get2027EForecast():null;
-  const rev=isForecast?(_f27.rev):isPlan?(_kpiPL?.tot?.rev_ann||PLAN_2026.매출):HIST.pl[_activeYear]?.rev||0;
-  const op=isForecast?(_f27.op):isPlan?(_kpiPL?.tot?.op_ann||PLAN_2026.영업이익):HIST.pl[_activeYear]?.op||0;
-  const gp=isForecast?(_f27.gp):isPlan?(_kpiPL?.tot?.gp_ann||PLAN_2026.매출총이익):(HIST.pl[_activeYear]?.gp||0);
-  const _wSim=(!isForecast&&isPlan)?simWireless():null;
-  const capa=isForecast?(_f27.capa):isPlan?((_wSim?.capaTotalMon_noIoT||[]).reduce((a,b)=>a+b,0)||670000):(HIST.wire[_activeYear]?.capa||0);
-  const distOp=isForecast?(_f27.dist_op):isPlan?(_kpiPL?.dist?.op_ann||0):(H_DIST.op[YEARS.indexOf(_activeYear)]||0);
-  const telOp=isForecast?(_f27.tel_op):isPlan?(_kpiPL?.tel?.op_ann||0):(H_TEL.op[YEARS.indexOf(_activeYear)]||0);
-  const ebitda=isForecast?(op+(_f27.dep||6000)):isPlan?(op+(simDepre().tel_ann||PLAN_2026.감가상각비)):((HIST.pl[_activeYear]?.op||0)+(HIST.pl[_activeYear]?.dep||0));
+  const rev=isForecast?(_f27.rev):(isPlan||is2026Act)?(_kpiPL?.tot?.rev_ann||PLAN_2026.매출):HIST.pl[_activeYear]?.rev||0;
+  const op=isForecast?(_f27.op):(isPlan||is2026Act)?(_kpiPL?.tot?.op_ann||PLAN_2026.영업이익):HIST.pl[_activeYear]?.op||0;
+  const gp=isForecast?(_f27.gp):(isPlan||is2026Act)?(_kpiPL?.tot?.gp_ann||PLAN_2026.매출총이익):(HIST.pl[_activeYear]?.gp||0);
+  const _wSim=(!isForecast&&(isPlan||is2026Act))?simWireless():null;
+  const capa=isForecast?(_f27.capa):(isPlan||is2026Act)?((_wSim?.capaTotalMon_noIoT||[]).reduce((a,b)=>a+b,0)||670000):(HIST.wire[_activeYear]?.capa||0);
+  const distOp=isForecast?(_f27.dist_op):(isPlan||is2026Act)?(_kpiPL?.dist?.op_ann||0):(H_DIST.op[YEARS.indexOf(_activeYear)]||0);
+  const telOp=isForecast?(_f27.tel_op):(isPlan||is2026Act)?(_kpiPL?.tel?.op_ann||0):(H_TEL.op[YEARS.indexOf(_activeYear)]||0);
+  const ebitda=isForecast?(op+(_f27.dep||6000)):(isPlan||is2026Act)?(op+(simDepre().tel_ann||PLAN_2026.감가상각비)):((HIST.pl[_activeYear]?.op||0)+(HIST.pl[_activeYear]?.dep||0));
   const prevYear=meta.prevYear;
   // 2027E일 때 prevYear='2026'은 HIST에 없음 → 2026E 계획 데이터 사용
   const _prevPL26 = (prevYear==='2026') ? simPLv2() : null;
@@ -5194,8 +5195,8 @@ function renderDashboard(){
   ];
 
   // ★ 세그먼트 분리 배너
-  const telRev   = isForecast?(_f27.tel_rev):isPlan?(_kpiPL?.tel?.rev_ann||0):(H_TEL.rev[YEARS.indexOf(_activeYear)]||0);
-  const distRev  = isForecast?(_f27.dist_rev):isPlan?(_kpiPL?.dist?.rev_ann||0):(H_DIST.rev[YEARS.indexOf(_activeYear)]||0);
+  const telRev   = isForecast?(_f27.tel_rev):(isPlan||is2026Act)?(_kpiPL?.tel?.rev_ann||0):(H_TEL.rev[YEARS.indexOf(_activeYear)]||0);
+  const distRev  = isForecast?(_f27.dist_rev):(isPlan||is2026Act)?(_kpiPL?.dist?.rev_ann||0):(H_DIST.rev[YEARS.indexOf(_activeYear)]||0);
   const telOpm   = telRev?telOp/telRev*100:0;
   const distOpm  = distRev?distOp/distRev*100:0;
   const prevTelRev = _prevPL26?(_prevPL26.tel?.rev_ann||0):(H_TEL.rev[YEARS.indexOf(prevYear)]||0);
@@ -7453,6 +7454,23 @@ function renderF27Merged26(){
   // 탭별 뷰
   const viewTab=window._f27m26View||'pl';
 
+  // ★ 시뮬 사유 생성 헬퍼
+  function _simReason(key){
+    if(lastM<0) return '계획값 그대로';
+    var act = F27.actual26 && F27.actual26[key];
+    var plan = f27GetPlan26(key);
+    var planMon = plan ? (plan.mon||Array(12).fill(0)) : Array(12).fill(0);
+    if(!act) return '계획값 유지 (BM 미매핑)';
+    var actSum=0, planSum=0;
+    for(var i=0;i<=lastM;i++){ actSum+=(act[i]!=null?act[i]:planMon[i])||0; planSum+=planMon[i]||0; }
+    var scale = planSum ? actSum/planSum : 1;
+    scale = Math.max(0.5, Math.min(2.0, scale));
+    var pct = ((scale-1)*100).toFixed(1);
+    var nAct = lastM+1;
+    if(Math.abs(scale-1)<0.005) return nAct+'월 실적 = 계획 수준';
+    return nAct+'월 BM실적 기반 '+(scale>1?'+':'')+pct+'% 스케일팩터';
+  }
+
   const rowSets={
     pl:[
       {key:'rev',   label:'매출',        bold:true},
@@ -7540,11 +7558,12 @@ function renderF27Merged26(){
   <thead><tr>
     <th style="${th};text-align:left;min-width:150px;position:sticky;left:0;z-index:2">항목 (백만원)</th>
     <th style="${th}">연간합산</th><th style="${th}">계획연간</th><th style="${th}">차이</th>
+    <th style="${th};min-width:160px;text-align:left;color:#6366f1">시뮬 사유</th>
     ${MO.map((mo,i)=>'<th style="'+th+';'+(i<=lastM?'background:#f0fdf4;color:#059669':i<=lastM+1&&lastM>=0?'background:#eff6ff;color:#1d4ed8':'')+'">'+mo+(i<=lastM?'<br><small style="font-size:9px">실</small>':lastM>=0&&i>lastM?'<br><small style="font-size:9px;color:#1d4ed8">시뮬</small>':'')+'</th>').join('')}
   </tr></thead><tbody>`;
 
   rows.forEach(row=>{
-    if(row.sep){html+='<tr><td colspan="16" style="height:4px;background:#f8fafc;border:none"></td></tr>';return;}
+    if(row.sep){html+='<tr><td colspan="17" style="height:4px;background:#f8fafc;border:none"></td></tr>';return;}
     const mon=m[row.key]||Array(12).fill(0);
     const ann=mon.reduce((s,v)=>s+v,0);
     const plan=f27GetPlan26(row.key);
@@ -7553,12 +7572,20 @@ function renderF27Merged26(){
     const isProfit=row.key==='op'||row.key==='gp'||row.key.includes('_op')||row.key.includes('_gp');
     const rb=row.highlight?'background:rgba(228,0,43,.04)':row.bold?'background:#fafafa':'';
     const td='border:1px solid #eef2f7;padding:4px 10px;text-align:right;cursor:pointer';
+    // ★ 시뮬 사유
+    var reason='';
+    if(row.key==='gp') reason=lastM>=0?'매출-원가 연산':'매출-원가';
+    else if(row.key==='op') reason=lastM>=0?'매출총이익-판관비 연산':'GP-SGA';
+    else if(row.key==='rev') reason=lastM>=0?'하위항목 합산':'계획값';
+    else if(row.key==='mkt') reason=lastM>=0?'SC+SP+ADV 합산':'하위합산';
+    else reason=_simReason(row.key);
 
     html+=`<tr style="${rb}">
       <td style="border:1px solid #eef2f7;padding:4px 12px;${row.dim?'color:#9ca3af':''};font-weight:${row.bold?700:500};${row.indent?'padding-left:'+(12+row.indent*14)+'px':''};position:sticky;left:0;background:${row.highlight?'rgba(228,0,43,.04)':row.bold?'#fafafa':'#fff'};z-index:1">${row.label}</td>
       <td style="${td};font-weight:${row.bold?700:500};color:${isProfit?(ann>=0?'#059669':'#dc2626'):'#111827'}">${f27Fmt(ann)}</td>
       <td style="${td};color:#9ca3af">${f27Fmt(planAnn)}</td>
       <td style="${td};color:${Math.abs(diff)<50?'#059669':diff>0?'#d97706':'#dc2626'};font-weight:600">${diff===0?'-':(diff>0?'+':'')+f27Fmt(diff)}</td>
+      <td style="border:1px solid #eef2f7;padding:4px 8px;font-size:9.5px;color:#6366f1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px" title="${reason}">${reason}</td>
       ${mon.map((v,i)=>{
         const isAct=i<=lastM;
         const isSim=lastM>=0&&i>lastM;
@@ -25919,12 +25946,17 @@ function _uplRenderBMGrid(){
   var html=MONTHS.map(function(mn,i){
     var bm=(typeof BM_ACT!=='undefined')?BM_ACT[String(i)]:null;
     var loaded=bmMonths.indexOf(i)>=0 && bm;
-    return '<div style="border:1px solid '+(loaded?'#10b981':'#e5e7eb')+';border-radius:8px;padding:8px 6px;text-align:center;background:'+(loaded?'#f0fdf4':'#fafafa')+';min-height:60px">'+
+    var fid='upl_bm_f_'+i;
+    return '<div style="border:1px solid '+(loaded?'#10b981':'#e5e7eb')+';border-radius:8px;padding:8px 6px;text-align:center;background:'+(loaded?'#f0fdf4':'#fafafa')+';min-height:80px">'+
       '<div style="font-size:11px;font-weight:700;color:'+(loaded?'#059669':'#9ca3af')+';margin-bottom:4px">'+mn+'</div>'+
       (loaded?
-        '<div style="font-size:9.5px;color:#064e3b;line-height:1.5">GP <b>'+Math.round(bm.gp/100)+'억</b><br>OP <b style="color:'+(bm.op>=0?'#059669':'#dc2626')+'">'+(bm.op>=0?'+':'')+Math.round(bm.op/100)+'억</b></div>'
+        '<div style="font-size:9.5px;color:#064e3b;line-height:1.5">GP <b>'+Math.round(bm.gp/100)+'억</b><br>OP <b style="color:'+(bm.op>=0?'#059669':'#dc2626')+'">'+(bm.op>=0?'+':'')+Math.round(bm.op/100)+'억</b></div>'+
+        '<div style="margin-top:4px"><input type="file" id="'+fid+'" accept=".xlsx,.xls" style="display:none" onchange="parseBMActualFile(this.files[0]);this.value=\'\';setTimeout(_uplRenderBMGrid,500)">'+
+        '<button onclick="document.getElementById(\''+fid+'\').click()" style="font-size:9px;padding:2px 6px;border:1px solid #d1d5db;border-radius:3px;background:#fff;cursor:pointer;color:#6b7280;font-family:inherit">재업로드</button></div>'
       :
-        '<div style="font-size:10px;color:#d1d5db;margin-top:4px">미업로드</div>'
+        '<div style="font-size:10px;color:#d1d5db;margin-top:4px">미업로드</div>'+
+        '<div style="margin-top:4px"><input type="file" id="'+fid+'" accept=".xlsx,.xls" style="display:none" onchange="parseBMActualFile(this.files[0]);this.value=\'\';setTimeout(_uplRenderBMGrid,500)">'+
+        '<button onclick="document.getElementById(\''+fid+'\').click()" style="font-size:9px;padding:2px 6px;border:1px dashed #d1d5db;border-radius:3px;background:#fff;cursor:pointer;color:#9ca3af;font-family:inherit">+ 업로드</button></div>'
       )+'</div>';
   }).join('');
   el.innerHTML=html;
