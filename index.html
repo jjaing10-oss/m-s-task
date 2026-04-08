@@ -9551,8 +9551,8 @@ function bmSyncTo26E(){
     BM_MONTHLY_2025[k.dst] = arr;
   });
 
-  // 예측 실행
-  loadBMActuals2026();
+  // 예측 실행 (DP_SECTION_KEYS 등 후속 상수가 정의된 후에만)
+  if(typeof DP_SECTION_KEYS!=='undefined') loadBMActuals2026();
 }
 
 // BM 파일 파서
@@ -13819,6 +13819,10 @@ const DP_SECTION_26={
 };
 DP_SECTION_26.etc = DP_SECTION_26.otherbiz;
 const DP_SECTION_KEYS=['goodbuy','siyon','coconut','aslog','rental','otherbiz'];
+// ★ 초기화 시 BM 실적이 이미 로드되어 있으면 예측 재실행 (bmSyncTo26E 시점에 미정의였던 경우)
+if(typeof BM_ACT!=='undefined' && Object.keys(BM_ACT).length>0 && typeof loadBMActuals2026==='function'){
+  try{ loadBMActuals2026(); }catch(_){}
+}
 const DP_ROW_DEFS=[
   {label:'상품서비스매출',key:'prod',group:'rev'},
   {label:'광고 수익',key:'ad',group:'rev'},
