@@ -432,6 +432,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .tbl td.ce-editing,.drv-tbl td.ce-editing,.mtrack-tbl td.ce-editing{background:#fff7ed!important;outline:2px solid #f97316!important;outline-offset:-2px!important;padding:0!important}
 .tbl td.ce-editing::after,.drv-tbl td.ce-editing::after,.mtrack-tbl td.ce-editing::after{display:none!important}
 .tbl td.ce-selected,.drv-tbl td.ce-selected,.mtrack-tbl td.ce-selected{background:#dcfce7!important;outline:2px solid rgba(34,197,94,.65)!important;outline-offset:-2px!important}
+td.f27-selected{background:#dbeafe!important;outline:2px solid rgba(59,130,246,.65)!important;outline-offset:-2px!important}
 .ce-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;margin-bottom:12px;font-size:11px;color:#d97706;font-weight:600}
 .ce-bar .ce-cnt{font-weight:800;font-family:monospace}
 .ce-dragging,.ce-dragging *{cursor:cell!important}
@@ -7589,13 +7590,16 @@ function renderF27Merged26(){
       ${mon.map((v,i)=>{
         const isAct=i<=lastM;
         const isSim=lastM>=0&&i>lastM;
-        return '<td style="'+td+';'+(isAct?'background:#f0fdf4':isSim?'background:#f5f8ff':'')+'" onclick="f26CellClick(\''+row.key+'\','+i+',this)">'+f27Fmt(v)+'</td>';
+        return '<td data-fkey="'+row.key+'" data-fmon="'+i+'" style="'+td+';'+(isAct?'background:#f0fdf4':isSim?'background:#f5f8ff':'')+'" onclick="f26CellClick(\''+row.key+'\','+i+',this)">'+f27Fmt(v)+'</td>';
       }).join('')}
     </tr>`;
   });
 
   html+='</tbody></table></div></div>';
   el.innerHTML=html;
+  // ★ 다중선택 바인딩
+  var tbl26=el.querySelector('table');
+  if(tbl26) f27BindSelection(tbl26,'26e');
 }
 
 // ============================================================
@@ -7608,11 +7612,30 @@ function renderF27Forecast(){
   const MO=MONTHS_KO;
   const viewTab=window._f27fcView||'pl';
 
+  // ★ 대당/인당 지표 계산 헬퍼
+  const _wCapa27 = F27.params.wirelessCapaTotal||680000;
+  const _wlNet27 = F27.params.wirelineNet||175000;
+  const _totalCapa27 = _wCapa27 + _wlNet27;
+  const _wCapa26 = 670000, _wlNet26 = 170000, _totalCapa26 = _wCapa26+_wlNet26;
+  const _hc26 = 2138; // 26E 평균 인원수
+  const _hcGr = 1 + (F27.params.wageGrowth||2)*0.1/100; // 인원은 임금인상률의 10%만 반영
+  const _hc27 = Math.round(_hc26 * _hcGr);
+  const _unitRow = function(baseKey, divBy, unit, label26){
+    return function(fc){
+      var ann = fc[baseKey] ? fc[baseKey].ann : 0;
+      var p26val = f27GetPlan26(baseKey);
+      var ann26 = p26val ? p26val.ann : 0;
+      return {ann27: divBy ? Math.round(ann/divBy*1e6) : 0, ann26: label26||(divBy ? Math.round(ann26/(baseKey.includes('labor')?_hc26:_totalCapa26)*1e6) : 0), unit: unit};
+    };
+  };
+
   const rowSets={
     pl:[
       {key:'rev',   label:'매출',        bold:true, logic:'성장률×합산'},
+      {key:'_u_rev',label:'    ↳ 대당매출', unit:true, dim:true, baseKey:'rev', divBy:_totalCapa27, divBy26:_totalCapa26, unitLabel:'원/건', logic:'매출÷CAPA'},
       {key:'prod',  label:'  상품매출',   dim:true,  logic:'원가율연동'},
       {key:'pol',   label:'  정책수수료', dim:true,  logic:'CAPA비례'},
+      {key:'_u_pol',label:'    ↳ 대당정책', unit:true, dim:true, baseKey:'pol', divBy:_wCapa27, divBy26:_wCapa26, unitLabel:'원/건', logic:'정책÷무선CAPA'},
       {key:'mgmt',  label:'  관리수수료', dim:true,  logic:'CAPA×단가×1.01'},
       {key:'etc',   label:'  기타수수료', dim:true,  logic:'성장률'},
       {sep:true},
@@ -7620,11 +7643,13 @@ function renderF27Forecast(){
       {key:'gp',    label:'매출총이익',   bold:true, logic:'매출-원가'},
       {sep:true},
       {key:'labor', label:'인건비',       bold:true, logic:'임금+'+F27.params.wageGrowth+'%'},
+      {key:'_u_labor',label:'    ↳ 인당인건비', unit:true, dim:true, baseKey:'labor', divBy:_hc27, divBy26:_hc26, unitLabel:'백만원/인', logic:'인건비÷인원'},
       {key:'lb_gen',label:'  일반직급여', dim:true,  logic:'임금연동'},
       {key:'lb_sal',label:'  영업직급여', dim:true,  logic:'임금연동'},
       {key:'lb_ret',label:'  퇴직급여',   dim:true,  logic:'임금연동'},
       {key:'lb_wel',label:'  복리후생비', dim:true,  logic:'임금×0.8'},
       {key:'mkt',   label:'마케팅비용',   bold:true, logic:'CAPA비례+'+F27.params.mktGrowth+'%'},
+      {key:'_u_mkt',label:'    ↳ 대당마케팅', unit:true, dim:true, baseKey:'mkt', divBy:_totalCapa27, divBy26:_totalCapa26, unitLabel:'원/건', logic:'마케팅÷CAPA'},
       {key:'sc',    label:'  판매수수료', dim:true,  logic:'CAPA비례'},
       {key:'sp',    label:'  판촉비',     dim:true,  logic:'+'+F27.params.spGrowth+'%'},
       {key:'adv',   label:'  광고비',     dim:true,  logic:'동결'},
@@ -7633,6 +7658,7 @@ function renderF27Forecast(){
       {key:'opex',  label:'기타운영비',   bold:true, logic:'물가+'+F27.params.cpiGrowth+'%'},
       {sep:true},
       {key:'op',    label:'영업이익',     bold:true, highlight:true, logic:'GP-판관비'},
+      {key:'_u_op', label:'    ↳ 대당영업이익', unit:true, dim:true, baseKey:'op', divBy:_totalCapa27, divBy26:_totalCapa26, unitLabel:'원/건', logic:'OP÷CAPA'},
     ],
     dist:[
       {key:'dist_rev',    label:'유통 매출',       bold:true, logic:'유통성장+'+F27.params.distGrowth+'%'},
@@ -7744,6 +7770,31 @@ function renderF27Forecast(){
   };
   rows.forEach(row=>{
     if(row.sep){html+='<tr><td colspan="19" style="height:4px;background:#f8fafc;border:none"></td></tr>';return;}
+
+    // ★ 대당/인당 파생 지표 행
+    if(row.unit){
+      const bk=row.baseKey;
+      const bRow=fc[bk]||{ann:0,mon:Array(12).fill(0)};
+      const uAnn27=row.divBy?Math.round(bRow.ann/row.divBy*1e6):0;
+      const p26=f27GetPlan26(bk);
+      const uAnn26=row.divBy26?Math.round((p26?p26.ann:0)/row.divBy26*1e6):0;
+      const uYoy=uAnn26?((uAnn27-uAnn26)/Math.abs(uAnn26)*100):0;
+      const uFmt=v=>v?Math.round(v).toLocaleString('ko-KR'):'0';
+      html+=`<tr style="background:#faf5ff">
+        <td style="border:1px solid #eef2f7;padding:3px 12px;padding-left:36px;color:#8b5cf6;font-size:10.5px;font-weight:500;position:sticky;left:0;background:#faf5ff;z-index:1">${row.label}</td>
+        <td style="border:1px solid #eef2f7;padding:3px 8px;font-size:9px;color:#a78bfa;text-align:center">${row.logic||''}</td>
+        <td style="border:1px solid #eef2f7;padding:3px 10px;text-align:right;font-size:10.5px;color:#7c3aed;font-weight:600">${uFmt(uAnn27)}<span style="font-size:8.5px;color:#a78bfa;margin-left:2px">${row.unitLabel}</span></td>
+        <td style="border:1px solid #eef2f7;padding:3px 10px;text-align:right;color:#c4b5fd;font-size:10px">—</td>
+        <td style="border:1px solid #eef2f7;padding:3px 10px;text-align:right;color:#a78bfa;font-size:10.5px">${uFmt(uAnn26)}</td>
+        <td style="border:1px solid #eef2f7;padding:3px 10px;text-align:right;color:${uYoy>=0?'#059669':'#dc2626'};font-size:10.5px;font-weight:600">${uYoy>=0?'+':''}${uYoy.toFixed(1)}%</td>
+        ${(bRow.mon||[]).map((v,i)=>{
+          var uv=row.divBy?Math.round(v/row.divBy*1e6):0;
+          return '<td style="border:1px solid #eef2f7;padding:3px 8px;text-align:right;font-size:10px;color:#8b5cf6;background:#faf5ff">'+uFmt(uv)+'</td>';
+        }).join('')}
+      </tr>`;
+      return;
+    }
+
     const fcRow=fc[row.key]||{ann:0,mon:Array(12).fill(0)};
     const ann27=fcRow.ann||0;
     const mon27=fcRow.mon||Array(12).fill(0);
@@ -7768,7 +7819,7 @@ function renderF27Forecast(){
       <td style="${td};color:${yoy>=0?'#059669':'#dc2626'};font-weight:600">${yoy>=0?'+':''}${yoy.toFixed(1)}%</td>
       ${mon27.map((v,i)=>{
         const isOv=F27.overrides27[row.key+'_'+i]!=null;
-        return '<td style="'+td+'cursor:pointer;'+(isOv?'background:#fff9e6;color:#d97706;font-weight:700':'background:rgba(255,245,245,.5)')+'" onclick="f27CellClick(\''+row.key+'\','+i+',this)" onmouseenter="if(!this.querySelector(\'input\'))this.style.background=\'#fffbeb\'" onmouseleave="if(!this.querySelector(\'input\'))this.style.background=\''+(isOv?'#fff9e6':'rgba(255,245,245,.5)')+'\'">'+(isOv?'<span title="수동입력">✏️ </span>':'')+f27Fmt(v)+'</td>';
+        return '<td data-fkey="'+row.key+'" data-fmon="'+i+'" style="'+td+'cursor:pointer;'+(isOv?'background:#fff9e6;color:#d97706;font-weight:700':'background:rgba(255,245,245,.5)')+'" onclick="f27CellClick(\''+row.key+'\','+i+',this)" onmouseenter="if(!this.querySelector(\'input\'))this.style.background=\'#fffbeb\'" onmouseleave="if(!this.querySelector(\'input\'))this.style.background=\''+(isOv?'#fff9e6':'rgba(255,245,245,.5)')+'\'">'+(isOv?'<span title="수동입력">✏️ </span>':'')+f27Fmt(v)+'</td>';
       }).join('')}
     </tr>`;
   });
@@ -7784,6 +7835,130 @@ function renderF27Forecast(){
   else if(viewTab==='narrative')   { el.innerHTML = f27RenderNarrative(); }
   else if(viewTab==='labor_infra') { el.innerHTML = f27RenderLaborInfra(); }
   else if(viewTab==='etcfee')      { el.innerHTML = f27RenderEtcFee(); }
+  else { // P&L/dist/opex 테이블에 다중선택 바인딩
+    var tbl=el.querySelector('table');
+    if(tbl) f27BindSelection(tbl,'27e');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// F27 다중선택 + 복사 + 붙여넣기 모듈
+// ═══════════════════════════════════════════════════════════
+var _f27Sel={anchor:null, cells:[], mode:null, tbl:null};
+
+function f27BindSelection(tbl, mode){
+  _f27Sel.tbl=tbl; _f27Sel.mode=mode;
+  var dragging=false, anchorTd=null;
+
+  function isFCell(td){ return td && td.dataset && td.dataset.fkey && td.dataset.fmon!==undefined; }
+  function clearSel(){
+    _f27Sel.cells.forEach(function(td){ td.classList.remove('f27-selected'); });
+    _f27Sel.cells=[]; _f27Sel.anchor=null;
+  }
+  function getRect(a, b){
+    var ar=a.parentElement.rowIndex, ac=a.cellIndex;
+    var br=b.parentElement.rowIndex, bc=b.cellIndex;
+    return {r1:Math.min(ar,br), r2:Math.max(ar,br), c1:Math.min(ac,bc), c2:Math.max(ac,bc)};
+  }
+  function paintRect(rect){
+    clearSel();
+    var rows=tbl.rows;
+    for(var r=rect.r1;r<=rect.r2;r++){
+      if(!rows[r]) continue;
+      for(var c=rect.c1;c<=rect.c2;c++){
+        var td=rows[r].cells[c];
+        if(td && isFCell(td)){ td.classList.add('f27-selected'); _f27Sel.cells.push(td); }
+      }
+    }
+  }
+
+  tbl.addEventListener('mousedown',function(e){
+    var td=e.target.closest('td[data-fkey]');
+    if(!td || e.button!==0) return;
+    if(e.target.tagName==='INPUT') return; // 편집 중이면 무시
+    dragging=true; anchorTd=td; _f27Sel.anchor=td;
+    clearSel(); td.classList.add('f27-selected'); _f27Sel.cells=[td];
+    e.preventDefault();
+  });
+  tbl.addEventListener('mousemove',function(e){
+    if(!dragging||!anchorTd) return;
+    var td=e.target.closest('td[data-fkey]');
+    if(!td) return;
+    paintRect(getRect(anchorTd,td));
+  });
+  document.addEventListener('mouseup',function(){ dragging=false; });
+
+  // Ctrl+C: 복사
+  document.addEventListener('keydown',function(e){
+    if(!_f27Sel.cells.length) return;
+    if((e.ctrlKey||e.metaKey)&&e.key==='c'&&!e.target.closest('input,textarea')){
+      e.preventDefault();
+      // 선택 셀을 행·열 기준으로 정렬
+      var byRow={};
+      _f27Sel.cells.forEach(function(td){
+        var r=td.parentElement.rowIndex;
+        if(!byRow[r]) byRow[r]=[];
+        byRow[r].push({c:td.cellIndex, v:(td.textContent||'').replace(/[✏️,\s]/g,'')});
+      });
+      var txt=Object.keys(byRow).sort(function(a,b){return a-b;}).map(function(r){
+        return byRow[r].sort(function(a,b){return a.c-b.c;}).map(function(x){return x.v;}).join('\t');
+      }).join('\n');
+      try{ navigator.clipboard.writeText(txt); _toast('📋 '+_f27Sel.cells.length+'개 셀 복사됨'); }catch(_){}
+    }
+    // Ctrl+V: 붙여넣기
+    if((e.ctrlKey||e.metaKey)&&e.key==='v'&&!e.target.closest('input,textarea')){
+      if(!_f27Sel.anchor) return;
+      e.preventDefault();
+      navigator.clipboard.readText().then(function(txt){
+        if(!txt) return;
+        var matrix=txt.split('\n').map(function(r){return r.split('\t');});
+        var startR=_f27Sel.anchor.parentElement.rowIndex;
+        var startC=_f27Sel.anchor.cellIndex;
+        var rows=tbl.rows;
+        var changed=0;
+        clearSel();
+        for(var dr=0;dr<matrix.length;dr++){
+          var row=rows[startR+dr]; if(!row) continue;
+          for(var dc=0;dc<matrix[dr].length;dc++){
+            var td=row.cells[startC+dc]; if(!td||!isFCell(td)) continue;
+            var raw=matrix[dr][dc].replace(/,/g,'').trim();
+            var v=raw.startsWith('=')?eval(raw.slice(1)):parseFloat(raw);
+            if(isNaN(v)) continue;
+            v=Math.round(v);
+            var fkey=td.dataset.fkey, fmon=parseInt(td.dataset.fmon);
+            if(mode==='27e'){
+              F27.overrides27[fkey+'_'+fmon]=v;
+            } else {
+              if(!F27.actual26) F27.actual26={};
+              if(!F27.actual26[fkey]) F27.actual26[fkey]=Array(12).fill(null);
+              F27.actual26[fkey][fmon]=v;
+              if(fmon>F27.lastActualMonth) F27.lastActualMonth=fmon;
+            }
+            td.classList.add('f27-selected'); _f27Sel.cells.push(td);
+            changed++;
+          }
+        }
+        if(changed>0){
+          if(mode==='27e'){ f27Compute(); f27Save(); renderF27Forecast(); }
+          else { f27ComputeMerged26(); f27Compute(); f27Save(); renderF27Merged26(); }
+          _toast('📋 '+changed+'개 셀 붙여넣기 완료');
+        }
+      }).catch(function(){ _toast('붙여넣기 실패 — 브라우저 클립보드 권한을 확인하세요'); });
+    }
+    // Escape: 선택 해제
+    if(e.key==='Escape') clearSel();
+    // Delete: 선택 셀 초기화
+    if(e.key==='Delete'&&_f27Sel.cells.length>0){
+      _f27Sel.cells.forEach(function(td){
+        var fkey=td.dataset.fkey, fmon=parseInt(td.dataset.fmon);
+        if(mode==='27e') delete F27.overrides27[fkey+'_'+fmon];
+        else if(F27.actual26&&F27.actual26[fkey]) F27.actual26[fkey][fmon]=null;
+      });
+      if(mode==='27e'){ f27Compute(); f27Save(); renderF27Forecast(); }
+      else { f27ComputeMerged26(); f27Compute(); f27Save(); renderF27Merged26(); }
+      _toast('🗑️ 선택 셀 초기화');
+    }
+  });
 }
 
 /* ── Excel 내보내기 ── */
