@@ -11304,16 +11304,16 @@ function plTable(rows26E, hRows, H_ref){
   function _isRowHidden(r){
     if(typeof _plCollapsed==='undefined') return false;
     const cls=r.cls||'';
-    // r-sub는 부모(r-tot/r-sga 등) 레이블이 접혀있으면 숨김
     if(cls==='r-sub'||cls==='r-sub2'||cls==='r-sub3'){
-      // 이 행의 부모 섹션 찾기: label의 첫 단어로 매칭
-      const trimL=(r.l||'').replace(/^\s+/,'').replace(/[\s\(]/,'_');
+      const trimL=(r.l||'').replace(/^\s+/,'').replace(/[\s\(]/,'_').split('_')[0];
+      // r-sub 행이 자기 이름으로 collapsed → 이건 부모(토글 가능) → 숨기지 않음
+      if(cls==='r-sub' && _plCollapsed.has(trimL)) return false;
+      // 부모 섹션이 접혀있으면 숨김
       for(const k of _plCollapsed){
-        if((r.l||'').includes(k)) return true;
+        if(k!==trimL && (r.l||'').includes(k)) return true;
       }
-      // sub2/sub3 는 부모 sub가 접혀도 숨김
+      // sub2/sub3: 부모 sub가 접혀도 숨김
       if(cls==='r-sub2'||cls==='r-sub3'){
-        // 부모 sub가 접힌 상태인지 -> rows26E에서 직전 상위 찾아서 판별 (간략: label prefix 매칭)
         for(const k of _plCollapsed){
           if((r.l||'').replace(/^\s+/,'').startsWith(k.slice(0,4))) return true;
         }
@@ -11325,7 +11325,7 @@ function plTable(rows26E, hRows, H_ref){
   function _collapseTd(r){
     const sectionKey = (r.l||'').replace(/^[\s\d\.ⅠⅡⅢⅣⅤ]+/,'').replace(/\s+/g,'').slice(0,6);
     const isOpen = typeof _plCollapsed==='undefined' || !_plCollapsed.has(r.l.trim().replace(/^[^가-힣A-Za-z]+/,'').split(/[\s\(]/)[0]);
-    const hasSubs = ['r-tot','r-sga'].includes(r.cls||'');
+    const hasSubs = ['r-tot','r-sga'].includes(r.cls||'') || (r.cls==='r-sub' && ['인건비','마케팅비용','임차관리비','감가상각비','기타운영비','수수료수입','상품매출'].includes(key));
     if(!hasSubs) return r.l;
     const key=r.l.trim().replace(/^[IVⅠ-Ⅴ\d\.\s]+/,'').replace(/^[\s\(]+/,'').split(' ')[0];
     const collapsed = typeof _plCollapsed!=='undefined' && _plCollapsed.has(key);
