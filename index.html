@@ -912,9 +912,6 @@ body.edit-mode{background:var(--bg)!important}
   <div class="secondary-row active" id="group_dashboard">
     <button class="main-tab active" data-tab="dashboard" onclick="switchMain('dashboard')">종합 현황</button>
     <button class="main-tab" data-tab="pl" onclick="switchGroup('edit');switchMain('pl')">손익 요약</button>
-    <button class="main-tab" data-tab="monthly_track" onclick="switchMain('monthly_track')">월별 추적</button>
-    <button class="main-tab" data-tab="plan_vs_actual" onclick="switchMain('plan_vs_actual')" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);color:#166534;border-color:#86efac;font-weight:700">📈 실적분석</button>
-    <button class="main-tab" data-tab="midterm" onclick="switchMain('midterm')">중기계획</button>
   </div>
   <div class="secondary-row" id="group_edit">
     <button class="main-tab" data-tab="pl" onclick="switchMain('pl')">전사 손익</button>
@@ -2726,6 +2723,10 @@ const MODEL_LAUNCH_CALENDAR=[
   {month:11,name:'연말 결산',          effect:'퇴직충당금 일시(2,084), 성과급(1,519), 판관비 최대(27,464)'},
 ];
 
+// ── 전역 월 상수 (중복 30+곳 → 2개 상수로 통합) ──
+const MONTHS_KO=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const MONTHS_NUM=['1','2','3','4','5','6','7','8','9','10','11','12'];
+
 // 2026E 유통플랫폼 월별 소스 계절성 (전사 손익계산서 행136)
 const DIST_REV_S26=[3289,6650,5962,4527,5977,6221,4565,4518,4518,4517,4517,4518];
 const DIST_S26_TOT=DIST_REV_S26.reduce((a,b)=>a+b,0);
@@ -3436,7 +3437,7 @@ async function loadDataJSON() {
 
 // 무선 실적 데이터 없을 때 fallback — 2026E 계획값 기준으로 표시
 function _wirelessFallback2026E(year){
-  const MN=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MN=MONTHS_KO;
   const fmt = v => v==null ? '-' : Number(v).toLocaleString();
 
   // 2026E 계획값 (PLAN_2026_FULL 기준)
@@ -3550,7 +3551,7 @@ function renderWirelessHistLike26(year){
     const yoy = (cur-base)/Math.abs(base)*100;
     return `YoY ${yoy>=0?'+':''}${yoy.toFixed(1)}%${suffix}`;
   };
-  const MN=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MN=MONTHS_KO;
   const channels=[
     {key:'wholesale', label:'도매'},
     {key:'retail', label:'소매'},
@@ -7150,7 +7151,7 @@ function renderF27Upload(){
   const p=F27.params; const lastM=F27.lastActualMonth; const hasAct=lastM>=0;
   const bmMonths = BM_LOADED_MONTHS.slice().sort((a,b)=>a-b);
   const hasBM = bmMonths.length>0;
-  const MONTHS=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MONTHS=MONTHS_KO;
 
   // BM 월별 현황 그리드
   const bmGrid = MONTHS.map((mn,i)=>{
@@ -7411,7 +7412,7 @@ function renderF27Merged26(){
   if(!F27.merged26) f27ComputeMerged26();
   const el=document.getElementById('f27_merged26_out'); if(!el) return;
   const m=F27.merged26; const lastM=F27.lastActualMonth;
-  const MO=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MO=MONTHS_KO;
 
   // 탭별 뷰
   const viewTab=window._f27m26View||'pl';
@@ -7541,7 +7542,7 @@ function renderF27Forecast(){
   if(!F27.forecast27) f27Compute();
   const el=document.getElementById('f27_forecast_out'); if(!el) return;
   const fc=F27.forecast27; const lastM=F27.lastActualMonth;
-  const MO=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MO=MONTHS_KO;
   const viewTab=window._f27fcView||'pl';
 
   const rowSets={
@@ -8325,7 +8326,7 @@ function _f27TabBtns(activeTab){
 function f27ExportExcel(){
   if(!F27.forecast27){alert('27년 예측 데이터 없음');return;}
   const fc=F27.forecast27; const m26=F27.merged26||{};
-  const MO=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MO=MONTHS_KO;
   const keys=['rev','cogs','gp','labor','mkt','sc','sp','rent','dep','opex','op','dist_rev','dist_cogs','dist_gp','dist_op'];
   const labels={rev:'매출',cogs:'매출원가',gp:'매출총이익',labor:'인건비',mkt:'마케팅비용',sc:'판매수수료',sp:'판촉비',rent:'임차관리비',dep:'감가상각비',opex:'기타운영비',op:'영업이익',dist_rev:'유통매출',dist_cogs:'유통원가',dist_gp:'유통매출총이익',dist_op:'유통영업이익'};
   const rows=[['항목','연간',...MO],['[26년 합산]'],
@@ -8518,7 +8519,7 @@ function generateFullAnalysis(){
 
 // ── 월별 특이월 자동 감지 ──
 function generateMonthlyAnalysis(){
-  const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MONTHS=MONTHS_KO;
   const anomalies = [];
   const plRows = M26_DATA?.pl || [];
 
@@ -8830,7 +8831,7 @@ function exportEnhancedXlsx(){
   const fmt = v => Math.round(v||0);
   const fmtB = v => (Math.round((v||0)/100)/10).toFixed(1);
   const pct = (a,b) => b ? ((a/b-1)*100).toFixed(1) : '0.0';
-  const MO = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MO=MONTHS_KO;
   const wb = XLSX.utils.book_new();
 
   // ── Sheet 1: 요약 ──
@@ -8985,7 +8986,7 @@ function exportEnhancedXlsx(){
 // 📅 월별 목표 탭 (m26) — 2026E KT 제출 확정값 월별 세부
 // ============================================================
 const M26_MODS = {};
-const M26_MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const M26_MONTHS=MONTHS_KO;
 
 const M26_DATA = {
   pl: [
@@ -10032,7 +10033,7 @@ function toggleMonGrid(gridId, btnId){
 
 // 월별 그리드 빌드: items=[{key,label,vals,ann}], gridId, onchange, resetFn
 function buildMonGrid(gridId, items, onchangeFn, resetFn){
-  const MN=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
   let html=`<div class="mon-grid-hdr"><span>${items.length}개 항목 · 수정 셀은 오렌지색 표시 · 사칙연산 입력 가능</span>`;
   if(resetFn) html+=`<button class="mon-reset-btn" onclick="${resetFn}()">🔄 자동배분 초기화</button>`;
   html+=`</div><table><thead><tr><th>항목</th>`;
@@ -10983,7 +10984,7 @@ function linked26Sum(sheet,key,monArr,annFallback){
 }
 function plTable(rows26E, hRows, H_ref){
   const YRS=['2022','2023','2024','2025'];
-  const MN=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
   // ★ sum26Row: mon26 배열이 있으면 월별 CE합계, 없으면 v26 fallback
   const sum26Row=(r)=>linked26Sum('pl', r.hk||r.l, Array.isArray(r?.mon26)?r.mon26:null, r?.v26||0);
 
@@ -11174,7 +11175,7 @@ function plTable(rows26E, hRows, H_ref){
 // ══ 2027E 손익계산서 렌더 ══════════════════════════════════════
 function _renderPL_2027E(el){
   const f = get2027EForecast();
-  const MN = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
   const HIST_YEARS = ['2022','2023','2024','2025','2026E'];
   const YR_H = {'2022':0,'2023':1,'2024':2,'2025':3};
   const fmtC = v => fmt(Math.round(v||0));
@@ -11360,7 +11361,7 @@ function renderPL(){
   setTimeout(updateTdVsSimCard, 0);
 
   let H_ref, rows26E, title, opm_cur, opm_prev, rev26, op26;
-  const MN12=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MN12=MONTHS_KO;
 
   if(tab==='tel'){
     H_ref=H_TEL; rev26=s.tel.rev_ann; op26=s.tel.op_ann;
@@ -11770,7 +11771,6 @@ function renderPL(){
       })());
 }
 
-function simPL(){return simPLv2().tot;} // backward compat
 
 // ============================================================
 // 무선 SIMULATION
@@ -11826,7 +11826,7 @@ function buildWirelessInputs(){
 
 // 월별 CAPA 입력 그리드 빌드
 function buildCapaMonGrid(){
-  const MN=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
   let html=`<table style="font-size:11px;border-collapse:collapse;min-width:900px">
     <thead><tr><th style="min-width:70px;padding:3px 6px;background:var(--s2);text-align:left">채널</th>`;
   MN.forEach(m=>html+=`<th style="padding:3px 5px;background:var(--s2);text-align:center">${m}월</th>`);
@@ -12262,7 +12262,7 @@ function renderWireless(){
   const s=simWireless();  // ★ 2026E 시뮬 — 반드시 입력패널 복원 후 호출
   const el=document.getElementById('w_out');
   const _wPassBanner = s._isPassthrough ? `<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:11px;color:#92400e">⚠️ CAPA 입력값 0 → 2026E 계획값 기준으로 표시 중. 좌측 패널에서 CAPA 입력하면 시뮬레이션 활성화됩니다.</div>` : '';
-  const MN=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MN=MONTHS_KO;
 
   // Metrics
   const mgmtRevTotal=s.mgmtRevAnnual+s.etcTotal;
@@ -12506,7 +12506,7 @@ function renderPlanVsActual(){
   // 실적 데이터 수집 (_state.monthlyTrack 기반)
   const d = _state.monthlyTrack || {};
   const PLAN_MON = PLAN_2026_FULL;
-  const MN = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MN=MONTHS_KO;
   const fmt = v => Math.round(v||0).toLocaleString('ko-KR');
   const fmtBil = v => (Math.round((v||0)/100)).toLocaleString('ko-KR')+'억';
   const pct = (a,b) => b ? ((a/b-1)*100).toFixed(1)+'%' : '—';
@@ -13022,92 +13022,6 @@ function renderRefSheets(){
   }
 }
 
-// ⑥ 민감도 분석 테이블 ─────────────────────────────────────────
-function buildSensitivityTable(){
-  const BASE_REV = PLAN_2026_FULL.rev.ann;    // 816,287
-  const BASE_OP  = PLAN_2026_FULL.op.ann;     // 17,151
-  const BASE_CAPA = 670000;
-  // CAPA 범위: -3만 ~ +3만 (1만 단위)
-  const capaSteps = [-30000,-20000,-10000,0,10000,20000,30000].map(d=>BASE_CAPA+d);
-  // 매출 범위: -3% ~ +3% (1% 단위)
-  const revPcts = [-3,-2,-1,0,1,2,3];
-
-  // 민감도 계산: CAPA 변화 → 관리수수료/상품매출 → 영업이익 변화
-  // 단순 선형 추정 (mgmt fee + prod rev per CAPA unit 기준)
-  const MGR_PER_CAPA = PLAN_TEL_FULL.mgmt.ann / BASE_CAPA; // 관리수수료 단가 (백만/건)
-  const PROD_MARGIN  = 1 - (PLAN_TEL_FULL.cogs.ann / PLAN_TEL_FULL.rev.ann); // 통신 매출총이익률
-  const POL_PER_CAPA = PLAN_TEL_FULL.pol.ann / BASE_CAPA;  // 정책수수료 단가
-
-  const calcOP_byCapa = (capa) => {
-    const capaDelta = capa - BASE_CAPA;
-    // 수수료 변화
-    const mgmtDelta = MGR_PER_CAPA * capaDelta;
-    const polDelta  = POL_PER_CAPA * capaDelta;
-    // 상품매출/원가 변화 (이익 기여는 낮음)
-    const prodRevDelta = (PLAN_TEL_FULL.prod.ann / BASE_CAPA) * capaDelta;
-    const prodCogsDelta= (PLAN_TEL_FULL.cogs.ann / BASE_CAPA) * capaDelta;
-    return BASE_OP + mgmtDelta + polDelta + (prodRevDelta - prodCogsDelta);
-  };
-
-  const calcOP_byRev = (revPct) => {
-    const revDelta = BASE_REV * (revPct/100);
-    // 수수료 비중 변화만 반영 (원가는 CAPA 기반이라 유지)
-    const commRatio = PLAN_2026_FULL.comm.ann / BASE_REV;
-    const cogsRatio = PLAN_2026_FULL.cogs.ann / BASE_REV;
-    return BASE_OP + revDelta * (commRatio - cogsRatio);
-  };
-
-  const fmtN = (v,base) => {
-    const d = Math.round((v-base)/100);
-    const col = d>0?'#059669':d<0?'#dc2626':'#374151';
-    return `<span style="color:${col}">${d>0?'+':''}${d}억</span>`;
-  };
-
-  let html = `<div class="card" style="margin-bottom:14px">
-    <div class="card-t">📐 민감도 분석 <span class="badge" style="background:rgba(245,158,11,.1);color:var(--or2)">선형 추정</span></div>
-    <div style="padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
-
-    <div>
-      <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">📡 CAPA 변동 → 영업이익 (기준: ${(BASE_CAPA/10000).toFixed(0)}만건)</div>
-      <table class="tbl" style="font-size:11px">
-        <thead><tr><th>CAPA</th><th>예상 영업이익</th><th>vs 기준</th><th>OPM</th></tr></thead>
-        <tbody>${capaSteps.map(c=>{
-          const op=calcOP_byCapa(c);
-          const opm=(op/BASE_REV*100).toFixed(2);
-          const isCur=c===BASE_CAPA;
-          return `<tr style="${isCur?'background:rgba(59,130,246,.08);font-weight:700':''}">
-            <td>${(c/10000).toFixed(0)}만건${isCur?' ←기준':''}</td>
-            <td style="font-family:monospace;text-align:right">${(op/100).toFixed(0)}억</td>
-            <td style="text-align:center">${isCur?'—':fmtN(op,BASE_OP)}</td>
-            <td style="text-align:right;color:var(--t3)">${opm}%</td>
-          </tr>`;}).join('')}
-        </tbody>
-      </table>
-    </div>
-
-    <div>
-      <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">💰 매출 변동 → 영업이익 (기준: ${(BASE_REV/100).toFixed(0)}억)</div>
-      <table class="tbl" style="font-size:11px">
-        <thead><tr><th>매출 변동</th><th>매출</th><th>예상 영업이익</th><th>vs 기준</th></tr></thead>
-        <tbody>${revPcts.map(p=>{
-          const rev=Math.round(BASE_REV*(1+p/100));
-          const op=calcOP_byRev(p);
-          const isCur=p===0;
-          return `<tr style="${isCur?'background:rgba(59,130,246,.08);font-weight:700':''}">
-            <td>${p>0?'+':''}${p}%${isCur?' ←기준':''}</td>
-            <td style="font-family:monospace;text-align:right">${(rev/100).toFixed(0)}억</td>
-            <td style="font-family:monospace;text-align:right">${(op/100).toFixed(0)}억</td>
-            <td style="text-align:center">${isCur?'—':fmtN(op,BASE_OP)}</td>
-          </tr>`;}).join('')}
-        </tbody>
-      </table>
-    </div>
-    </div>
-    <div style="padding:4px 12px 8px;font-size:10px;color:var(--t3)">※ 선형 추정치 (CAPA당 관리수수료 ${(MGR_PER_CAPA*10000).toFixed(1)}백만/만건, 정책수수료 ${(POL_PER_CAPA*10000).toFixed(1)}백만/만건 기준). 실제 영업이익은 비선형 요소 포함.</div>
-  </div>`;
-  return html;
-}
-
 function buildValidationTable(items, title) {
   // items: [{label, sim, src, unit, tol(%), higherBetter}]
   let html = `<div class="card" style="margin-top:12px;border:1px solid rgba(16,185,129,.25)">
@@ -13246,7 +13160,7 @@ function buildTrendChart(title, rows, badgeRgb) {
 // 드라이버 × 볼륨 분해 테이블 (buildDriverTable / renderWireDriverTables)
 // ============================================================
 function buildDriverTable(rows, title, badgeRgb) {
-  const MN=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MN=MONTHS_KO;
   let html=`<div class="card" style="margin-top:12px">
     <div class="card-t">${title} <span class="badge" style="background:rgba(${badgeRgb},.12);color:rgb(${badgeRgb})">단위경제 분해</span>
     <span style="font-size:9px;color:var(--t3);font-weight:400;margin-left:6px">셀 클릭 → 직접 수정</span></div>
@@ -13735,7 +13649,7 @@ function renderDPSection(tab){
   const el=document.getElementById('dp_out'); if(!el) return;
   const conf=DP_SECTION_26[tab]; if(!conf) return;
   const base=_dpSectionBase(tab), rows=_dpSectionRows(base), sim=base.sim;
-  const MN=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
   const opm=base.d.rev?base.op/base.d.rev:0;
   const cogsRate=base.d.rev?base.cogs/base.d.rev:0;
   const sgaRate=base.d.rev?base.sga/base.d.rev:0;
@@ -13946,7 +13860,7 @@ function renderDP(){
   if((_activeYear||'2026E')==='2026E') _setInpPanelReadonly('distplatform', false, '2026E');
   const s=simDistPlatform();
   if(_dpTab!=='total'){ renderDPSection(_dpTab); return; }
-  const MN=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
 
   const opm=s.tot.rev?s.tot.op/s.tot.rev:0;
   const met=[
@@ -14494,7 +14408,7 @@ function renderLB(){
   const s = simLabor();
   const el= document.getElementById('lb_out');
   if(!el) return;
-  const MN=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
   const tab = _lbTab;
   // ── 연도탭 분기 처리
   const _lbYr = _activeYear;
@@ -15060,7 +14974,7 @@ function renderLB(){
 // 📄 인건비 보고서 HTML 추출 (22~26E 전체)
 // ============================================================
 function exportLaborReport(){
-  const MN=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MN=MONTHS_KO;
   const YEARS=['2022','2023','2024','2025'];
   const s26 = simLabor();
 
@@ -15564,7 +15478,7 @@ ${monthlySections}
 // ============================================================
 const ADJ_KEYS = ['gen','sal','wf','ret'];
 const ADJ_LABELS = {gen:'일반직급여', sal:'영업직급여', wf:'복리후생', ret:'퇴직급여'};
-const MN_SHORT = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const MN_SHORT=MONTHS_KO;
 
 function buildAdjGrid(key){
   const container = document.getElementById(`adj_mon_grid_${key}`);
@@ -15866,7 +15780,7 @@ function buildInfraInputs(){
     const sl = document.getElementById('ifs_mgmt_per_store');
     if(sl) sl.value = Math.round(savedVal);
   }
-  const MN=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
   let html=`<div style="font-weight:700;color:var(--t2)">월</div><div style="font-weight:700;color:var(--ac2)">소매</div><div style="font-weight:700;color:var(--or2)">도매</div>`;
   MN.forEach((m,i)=>{
     html+=`
@@ -16059,7 +15973,7 @@ function renderIF(){
   const el=document.getElementById('if_out');
   if(!el) return;
 
-  const MN=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
   const activeYear=_activeYear||'2026E';
   const isHist=activeYear!=='2026E';
 
@@ -16736,7 +16650,7 @@ function renderDEP(){
   }
   const s=simDepre(), el=document.getElementById('dep_out');
   if(!el) return;
-  const MN=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
   const tab=_depTab;
   const prev25=6388;
 
@@ -17366,7 +17280,7 @@ function renderOX(){
   _setInpPanelReadonly('opex', false, '2026E');
   const s=simOpex(), el=document.getElementById('ox_out');
   if(!el) return;
-  const MN=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
   const tab=_oxTab;
   const prev25=38449;  // 통신 전용 기타운영비 2025 실적 (전사38,524 - 유통플랫폼 75)
   const yoy=(s.total_ann-prev25)/prev25;
@@ -17878,7 +17792,7 @@ function renderEF(){
   _setInpPanelReadonly('etcfee', false, '2026E');
   const s=simEtcFee(), el=document.getElementById('ef_out');
   if(!el) return;
-  const MN=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
   const tab=_efTab;
   const prev25=47979;
   // ★ 전사 기타수수료 = 통신 + 유통(1,095)
@@ -18132,7 +18046,7 @@ function _renderVerifyInner(el){
   const s=pl.tot, t=pl.tel, d=pl.dist;
   const dp=simDistPlatform();
   const V=VERIFY_SRC;
-  const MN=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
   const tab=_vfyTab;
 
   const lb=simLabor(), ox=simOpex(), ifr=simInfra(), dep=simDepre(), wl_s=simWireline(), w_s=simWireless();
@@ -19577,7 +19491,7 @@ function renderForecast27(){
     </div>`;
 
     // ── 27E 월별 배분 테이블 (세분화) ──
-    const MN2=['1','2','3','4','5','6','7','8','9','10','11','12'];
+    const MN2=MONTHS_NUM;
     const monItems27=[
       {l:'매출', d:f27.rev_mon, ann:f27.rev, cls:'r-tot'},
       {l:'  상품매출', d:f27.prod_mon, ann:f27.prod, cls:'r-sub'},
@@ -19711,7 +19625,7 @@ function renderItemDetail(){
   }
 
   // ── 월별 섹션 헬퍼 ──────────────────────────────────────────
-  const MN=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MN=MONTHS_KO;
   function monTable(title, srcMon, simMon, srcAnn, simAnn){
     const d=diff(simAnn,srcAnn);
     const tol=Math.round(Math.abs(srcAnn||0)*0.005+10);
@@ -20011,7 +19925,7 @@ function navigateToItem(tabGroup, tabName, anchorId){
 function renderSumCheck(){
   const pl=simPLv2();
   const s=pl.tot, t=pl.tel, d=pl.dist;
-  const MN=['1','2','3','4','5','6','7','8','9','10','11','12'];
+  const MN=MONTHS_NUM;
   const TOL=1; // 백만원 허용오차
 
   // 월배열 합산 vs 연간값 비교
@@ -20734,7 +20648,7 @@ function _renderWirelineHist(yr) {
   const yi = WL_HIST.years.indexOf(yr);
   const pyi= WL_HIST.years.indexOf(prevYr);
   const banner = _histBanner(yr);
-  const MN=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MN=MONTHS_KO;
   const yoyFmt=(a,b)=>b?(((a-b)/Math.abs(b))*100).toFixed(1)+'%':'—';
   const gNet=(ch,m)=>(WL_HIST.net_mon[ch]&&WL_HIST.net_mon[ch][yr])?WL_HIST.net_mon[ch][yr][m]||0:0;
   const gMgmt=(ch,m)=>(WL_HIST.mgmt_mon[ch]&&WL_HIST.mgmt_mon[ch][yr])?WL_HIST.mgmt_mon[ch][yr][m]||0:0;
@@ -21018,7 +20932,7 @@ function renderWireline(){
   if((_activeYear||'2026E')!=='2026E'){ _setInpPanelReadonly('wireline', true, _activeYear); _renderWirelineHist(_activeYear); return; }
   _setInpPanelReadonly('wireline', false, '2026E');
   const s=simWireline(),el=document.getElementById('wl_out');
-  const MN=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MN=MONTHS_KO;
 
   // 메트릭
   const net25tot=WL_NET_25.reduce((a,b)=>a+b,0);
@@ -21095,7 +21009,7 @@ function renderWireline(){
 // ── 유선 단위경제 드라이버 테이블 ──────────────────────────────
 function _buildWirelineDriverTables(s26, yr) {
   const isHist = yr !== '2026E';
-  const MN=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MN=MONTHS_KO;
   const H = WL_UNIT_HIST;
   const g = (key) => H[key] && H[key][yr] ? H[key][yr] : Array(12).fill(0);
 
@@ -21381,7 +21295,7 @@ function downloadXlsx(){
   const w=simWireless(), wl=simWireline(), lb=simLabor();
   const dep=simDepre(), ox=simOpex(), ef=simEtcFee(), ifr=simInfra();
   const wb2=XLSX.utils.book_new();
-  const MO=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MO=MONTHS_KO;
   const r12=(v)=>Math.round(v||0);
   const mo=(arr)=>arr.map(v=>r12(v||0));
   const H=['2022년','2023년','2024년','2025년'];
@@ -23968,7 +23882,7 @@ function applyEditCell(){
 // 📊 월별 추적 스프레드시트
 // ============================================================
 
-const MTRACK_MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const MTRACK_MONTHS=MONTHS_KO;
 
 // 행 정의: {id, label, unit, type:'input'|'auto', section, autoFn, planArr, goodDir}
 const MTRACK_ROWS = [
