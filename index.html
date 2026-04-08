@@ -11812,20 +11812,24 @@ function simWireless(){
   let capaTotal=Object.values(capa).reduce((a,b)=>a+b,0);
 
   // ★ CAPA 합계가 여전히 0이면 계획값 완전 passthrough 반환
+  // ★ 무선 전용값 사용 (통신 전체 PLAN_TEL_FULL에서 유선 분리)
   if(capaTotal===0){
     const P=PLAN_TEL_FULL, P2=PLAN_2026_FULL;
     const z=Array(12).fill(0);
     const g=k=>((P[k]||{}).mon||z).slice();
+    const _ptEtcTotal=W_ETC_DEF.filter(i=>i.isChannel!==true).reduce((a,i)=>a+i.v26,0);
+    const _ptMgmtCh=PLAN_TARGETS.무선관리수수료-_ptEtcTotal;
+    const _ptPolMon=[12341,11315,16543,12594,12662,12209,17935,13238,17578,14036,12310,12956];
     return {
       capa:{}, capaMon:{}, capaTotal:0, capaTotalMon:z, capaTotalMon_noIoT:z,
       active:{}, activeTotal:z, 해지:{}, 만기:{}, 순증:{}, 순증Total:z,
       관리수수료:{}, 관리수수료Total:z,
-      mgmtRevAnnual:P.mgmt.ann||0, etcTotal:0, totalMgmtRev:P.mgmt.ann||0,
+      mgmtRevAnnual:_ptMgmtCh, etcTotal:_ptEtcTotal, totalMgmtRev:PLAN_TARGETS.무선관리수수료,
       etc:{}, etcMon:{}, activeChannels:[],
       fee:{}, churn:{},
       prodRev:g('prod'), prodCogs:g('cogs'),
-      polFee:g('pol'),
-      prodRevTotal:P.prod.ann||0, prodCogsTotal:P.cogs.ann||0, polFeeTotal:P.pol.ann||0,
+      polFee:_ptPolMon,
+      prodRevTotal:P.prod.ann||0, prodCogsTotal:P.cogs.ann||0, polFeeTotal:165717,
       salesComm:Array(12).fill(Math.round((P2.sc?.ann||0)/12)),
       salesPromo:Array(12).fill(Math.round((P2.sp?.ann||0)/12)),
       salesCommTotal:P2.sc?.ann||0, salesPromoTotal:P2.sp?.ann||0,
