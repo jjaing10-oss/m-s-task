@@ -12204,7 +12204,7 @@ function renderWireless(){
   const mets=[
     {lb:'CAPA 전사',vl:fmtD(s.capaTotal),ch:`YoY ${fmtP((s.capaTotal-642934)/642934)}`,cl:'var(--ac2)'},
     {lb:'Active 8.5% (12월말)',vl:fmtD(s.activeTotal[11]),ch:`순증 ${fmtD(s.순증Total.reduce((a,b)=>a+b,0))}`,cl:'var(--gn2)'},
-    {lb:'상품매출',vl:fmtD(s.prodRevTotal),ch:`vs 25년 ${fmtP((s.prodRevTotal-467696)/467696)}`,cl:'var(--ac2)'},
+    {lb:'상품매출',vl:fmtD(s.prodRevTotal),ch:`vs 25년 ${fmtP((s.prodRevTotal-H_TEL.prod[3])/H_TEL.prod[3])}`,cl:'var(--ac2)'},
     {lb:'상품원가',vl:fmtD(s.prodCogsTotal),ch:`원가율 ${(s.prodCogsTotal/s.prodRevTotal*100).toFixed(1)}%`,cl:'var(--rd2)'},
     {lb:'정책수수료',vl:fmtD(s.polFeeTotal),ch:`vs 25년 ${fmtP((s.polFeeTotal-162211)/162211)}`,cl:'var(--or2)'},
     {lb:'관리수수료 (총계)',vl:fmtD(Math.round(mgmtRevTotal)),ch:`채널 ${fmtD(Math.round(s.mgmtRevAnnual))}`,cl:'var(--gn2)'},
@@ -12406,9 +12406,10 @@ function renderWireless(){
     ${buildValidationTable([
       {label:'CAPA (전사)',       sim:s.capaTotal,      src:670000,                     tol:0.5},
       {label:'상품매출',          sim:s.prodRevTotal,   src:PLAN_TEL_FULL.prod.ann,     tol:1},
-      {label:'매출원가',          sim:s.prodCogsTotal,  src:PLAN_TEL_FULL.cogs.ann-PLAN_TEL_FULL.prod.ann,  tol:1},
-      {label:'정책수수료',        sim:s.polFeeTotal,    src:PLAN_TEL_FULL.pol.ann-62670, tol:1},
-      {label:'관리수수료(채널)',  sim:s.mgmtRevAnnual,  src:PLAN_TEL_FULL.mgmt.ann,     tol:1},
+      {label:'매출원가',          sim:s.prodCogsTotal,  src:PLAN_TEL_FULL.cogs.ann,     tol:1},
+      {label:'정책수수료(무선)',  sim:s.polFeeTotal,    src:W_POL_ANN26_SRC,            tol:1},
+      {label:'관리수수료(채널)',  sim:s.mgmtRevAnnual,  src:PLAN_TARGETS.무선관리수수료-W_ETC_DEF.filter(i=>i.isChannel!==true).reduce((a,i)=>a+i.v26,0), tol:1},
+      {label:'관리수수료(총계)',  sim:s.totalMgmtRev,   src:PLAN_TARGETS.무선관리수수료, tol:1},
       {label:'판매수수료',        sim:s.salesCommTotal, src:16897,                       tol:1},
     ], '무선 단위드라이버 검증 (엑셀 26E 소스 기준)')}` + renderWireDriverTables(s);
   }
