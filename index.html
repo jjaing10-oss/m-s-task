@@ -9603,7 +9603,7 @@ function parseBMActualFile(file){
       const dep   = (raw._dep_tang||0)+(raw._dep_mu||0);
       const opex  = (raw.fee||0)+(raw.mtg||0)+(raw.trans||0)+(raw.edu||0)+(raw.telecom||0)
                    +(raw.supplies||0)+(raw.entertain||0)+(raw.insure||0)+(raw.tax||0)
-                   +(raw.car||0)+(raw.travel||0)+(raw.book||0)+(raw.utility||0);
+                   +(raw.car||0)+(raw.travel||0)+(raw.book||0);
       const mkt   = (raw.sp||0)+(raw.sc||0)+(raw.adv||0);
 
       const entry = {
@@ -9618,8 +9618,8 @@ function parseBMActualFile(file){
         pol, mgmt, etc_comm,
         // ★ 인건비/감가 합산
         labor, dep, dep_tang: raw._dep_tang||0, dep_mu: raw._dep_mu||0,
-        // ★ 임차/마케팅
-        rent: raw.rent||0, mkt,
+        // ★ 임차관리비 = 지급임차료 + 수도광열비
+        rent: (raw.rent||0)+(raw.utility||0), mkt,
         sc:raw.sc||0, sp:raw.sp||0, adv:raw.adv||0,
         // ★ 기타운영비 세부 전체
         fee:raw.fee||0, mtg:raw.mtg||0, trans:raw.trans||0,
