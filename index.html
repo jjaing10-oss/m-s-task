@@ -822,13 +822,16 @@ body.edit-mode{background:var(--bg)!important}
 
 /* ═══ 임원보고서 인쇄 최적화 ═══ */
 @media print {
-  body { background: #fff !important; }
+  body { background: #fff !important; margin: 0 !important; }
   .hdr, .primary-tabs, .secondary-wrap, #ce-fbar, .mobile-dl-fab,
-  .sheet:not(#sheet_exec_report) { display: none !important; }
+  .sheet:not(#sheet_exec_report), #btn_undo, #btn_redo,
+  .no-print { display: none !important; }
   #sheet_exec_report { display: block !important; padding: 0 !important; }
-  #sheet_exec_report > div > div:first-child { display: none !important; } /* 버튼 영역 숨김 */
+  #sheet_exec_report > div > div:first-child { display: none !important; }
   #exec_report_content { max-width: 100% !important; font-size: 10pt !important; }
   #exec_report_content input[type="text"] { border: none !important; font-size: 9pt !important; }
+  #exec_report_content table { page-break-inside: avoid; }
+  #exec_report_content > div { page-break-inside: avoid; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   @page { margin: 15mm 12mm; size: A4; }
 }
@@ -8762,7 +8765,75 @@ function renderExecReport(){
     </table>
   </div>`;
 
-  // ── 섹션 6: 리스크 & 가정 ──
+  // ── 섹션 6: 시즌 패턴 분석 (NEW) ──
+  if(typeof MODEL_LAUNCH_CALENDAR!=='undefined'){
+    html+=`<div style="border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:20px">
+    <div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:10px">5. 신규 단말 출시 캘린더 & 시즌 영향</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="background:#111827;color:#fff">
+      <th style="padding:5px 8px;text-align:center;border-radius:6px 0 0 0">월</th>
+      <th style="padding:5px 8px;text-align:left">이벤트</th>
+      <th style="padding:5px 8px;text-align:left;border-radius:0 6px 0 0">예상 효과</th>
+    </tr></thead><tbody>`;
+    MODEL_LAUNCH_CALENDAR.forEach((ev,i)=>{
+      const isHigh=ev.effect.includes('↑↑')||ev.effect.includes('최고')||ev.effect.includes('최대');
+      html+=`<tr style="background:${i%2?'#f8fafc':'#fff'}${isHigh?';border-left:3px solid #f59e0b':''}">
+        <td style="padding:4px 8px;text-align:center;font-weight:700">${ev.month+1}월</td>
+        <td style="padding:4px 8px;font-weight:600">${ev.name}</td>
+        <td style="padding:4px 8px;color:${isHigh?'#d97706':'var(--t2)'}">${ev.effect}</td>
+      </tr>`;
+    });
+    html+=`</tbody></table></div>`;
+  }
+
+  // ── 섹션 7: BM별 2025 실적 기반 수익성 (NEW) ──
+  if(typeof BM_MONTHLY_2025!=='undefined'){
+    const BM=BM_MONTHLY_2025;
+    const rev25T=BM.rev.reduce((a,b)=>a+b,0);
+    const op25T=BM.op.reduce((a,b)=>a+b,0);
+    const gp25T=BM.gp.reduce((a,b)=>a+b,0);
+    html+=`<div style="border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:20px">
+    <div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:10px">6. 2025년 실적 기반 수익 구조 분석</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+      <div style="background:#f0fdf4;border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--t3)">매출</div>
+        <div style="font-size:18px;font-weight:800;color:#059669">${fmtB(rev25T)}</div>
+      </div>
+      <div style="background:#eff6ff;border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--t3)">매출총이익</div>
+        <div style="font-size:18px;font-weight:800;color:#1d4ed8">${fmtB(gp25T)}</div>
+        <div style="font-size:10px;color:var(--t3)">GPM ${(gp25T/rev25T*100).toFixed(1)}%</div>
+      </div>
+      <div style="background:#fef3c7;border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:10px;color:var(--t3)">영업이익</div>
+        <div style="font-size:18px;font-weight:800;color:#d97706">${fmtB(op25T)}</div>
+        <div style="font-size:10px;color:var(--t3)">OPM ${(op25T/rev25T*100).toFixed(1)}%</div>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--t3);margin-bottom:8px">* BM별 이익계산서 2025년 누적 기준. 최대월: ${BM.rev.indexOf(Math.max(...BM.rev))+1}월 (매출 ${fmt(Math.max(...BM.rev))}백만)</div>
+    </div>`;
+
+    // 2026 1~2월 실적 비교
+    if(BM.rev_2026&&BM.rev_2026.length>=2){
+      const planMon=PLAN_2026_FULL?.rev?.mon||[];
+      html+=`<div style="border:1px solid #86efac;border-radius:10px;padding:14px;margin-bottom:20px;background:#f0fdf4">
+      <div style="font-size:14px;font-weight:700;color:#166534;margin-bottom:10px">7. 2026년 1~2월 실적 속보</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">`;
+      [0,1].forEach(m=>{
+        const aR=BM.rev_2026[m], pR=planMon[m]||0;
+        const aO=BM.op_2026[m];
+        const rPct=pR?(aR/pR*100).toFixed(1):'—';
+        html+=`<div style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:10px">
+          <div style="font-weight:700;margin-bottom:4px">${m+1}월</div>
+          <div style="font-size:11px">매출: <b>${fmt(aR)}</b> (계획 ${fmt(pR)}, 달성 <b style="color:${parseFloat(rPct)>=100?'#059669':'#dc2626'}">${rPct}%</b>)</div>
+          <div style="font-size:11px">영업이익: <b style="color:${aO>=0?'#059669':'#dc2626'}">${fmt(aO)}</b></div>
+        </div>`;
+      });
+      html+=`</div></div>`;
+    }
+  }
+
+  // ── 섹션 8: 리스크 & 가정 ──
   let riskData={};
   try{riskData=JSON.parse(localStorage.getItem('ktms_risk_factors_v1')||'{}');}catch(_){}
   const riskUp = riskData.risk_up || '• 5G 교체 수요 가속화\n• 기업(B2B) IoT 수주 호조\n• 유통플랫폼 성장 가속';
@@ -8982,8 +9053,61 @@ function exportEnhancedXlsx(){
     XLSX.utils.book_append_sheet(wb,ws,'항목별분석');
   }
 
+  // ── Sheet 8: BM 시즌 패턴 (2025 실적 기반) ──
+  if(typeof BM_MONTHLY_2025!=='undefined'){
+    const BM=BM_MONTHLY_2025;
+    const aoa=[['2025년 BM별 월별 실적 (시즌 패턴)'],[''],['항목','연간',...MO]];
+    const bmRows=[
+      {lb:'매출액',d:BM.rev},{lb:'매출원가',d:BM.cogs},{lb:'매출총이익',d:BM.gp},
+      {lb:'판관비',d:BM.sga},{lb:'인건비',d:BM.labor},{lb:'상여금',d:BM.bonus},
+      {lb:'퇴직급여',d:BM.retire},{lb:'복리후생비',d:BM.welfare},{lb:'영업이익',d:BM.op}
+    ];
+    bmRows.forEach(r=>aoa.push([r.lb,r.d.reduce((a,b)=>a+b,0),...r.d]));
+    if(BM.rev_2026){
+      aoa.push([]);aoa.push(['2026년 실적 (1~2월)','','1월','2월']);
+      aoa.push(['매출액','',BM.rev_2026[0],BM.rev_2026[1]]);
+      aoa.push(['영업이익','',BM.op_2026[0],BM.op_2026[1]]);
+    }
+    if(typeof MODEL_LAUNCH_CALENDAR!=='undefined'){
+      aoa.push([]);aoa.push(['단말 출시 캘린더']);aoa.push(['월','이벤트','효과']);
+      MODEL_LAUNCH_CALENDAR.forEach(ev=>aoa.push([ev.month+1+'월',ev.name,ev.effect]));
+    }
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:16},{wch:12},...MO.map(()=>({wch:10}))];
+    XLSX.utils.book_append_sheet(wb,ws,'시즌패턴');
+  }
+
+  // ── Sheet 9: 27E 예측 상세 ──
+  {
+    const f=get2027EForecast();
+    const aoa=[['2027E 예측 상세 (세분화 항목)'],[''],['항목','27E (백만원)','비고']];
+    const f27Items=[
+      ['매출액',f.rev_ann,''],['수수료수입',f.comm_ann,''],['상품매출',f.prod_ann,''],
+      ['매출원가',f.cogs_ann,''],['매출총이익',f.gp_ann,''],
+      ['인건비(합계)',f.labor_ann,''],
+      ['  일반직 급여',f.gen_salary_ann||'',''],['  영업직 급여',f.sal_salary_ann||'',''],
+      ['  인센티브/상여',f.incentive_ann||'',''],['  퇴직급여',f.retire_ann||'',''],
+      ['  복리후생비',f.welfare_ann||'',''],
+      ['마케팅비용',f.mkt_ann,''],['  판매수수료',f.sc_ann||'',''],['  판촉비',f.sp_ann||'',''],['  광고비',f.adv_ann||'',''],
+      ['임차관리비',f.rent_ann,''],['감가상각비',f.dep_ann,''],
+      ['기타운영비',f.opex_ann,''],['영업이익',f.op_ann,''],
+      ['OPM(%)',f.rev_ann?(f.op_ann/f.rev_ann*100).toFixed(2)+'%':'',''],
+    ];
+    f27Items.forEach(r=>aoa.push(r.map(v=>typeof v==='number'?fmt(v):v)));
+    // 27E monthly
+    aoa.push([]);aoa.push(['27E 월별','연간',...MO]);
+    const fcm=fc||{};
+    ['rev','cogs','gp','labor','mkt','sp','rent','dep','opex','op'].forEach(k=>{
+      const r=fcm[k]||{ann:0,mon:Array(12).fill(0)};
+      aoa.push([{rev:'매출',cogs:'매출원가',gp:'매출총이익',labor:'인건비',mkt:'마케팅',sp:'판촉비',rent:'임차',dep:'감가상각',opex:'기타운영',op:'영업이익'}[k],fmt(r.ann),...r.mon.map(v=>fmt(v))]);
+    });
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=[{wch:20},{wch:14},...MO.map(()=>({wch:10}))];
+    XLSX.utils.book_append_sheet(wb,ws,'27E예측');
+  }
+
   XLSX.writeFile(wb, 'KT_MS_2027_경영계획_분석포함.xlsx');
-  alert('분석 포함 엑셀이 다운로드되었습니다.');
+  alert('분석 포함 엑셀 (9개 시트) 다운로드 완료.');
 }
 
 // ============================================================
