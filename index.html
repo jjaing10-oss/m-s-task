@@ -5855,10 +5855,9 @@ function get2027EForecast(){
 
   // ── 전사 매출 ──
   const rev27 = ce('rev', trendNext(h(s26.rev_ann, H_TOT.rev)));
-  // 통신/유통 비율 유지
-  const telRevShare = s26.rev_ann ? t26.rev_ann / s26.rev_ann : 0.926;
-  const tel_rev27 = ce('tel_rev', Math.round(rev27 * telRevShare));
-  const dist_rev27 = ce('dist_rev', rev27 - tel_rev27);
+  // ★ 유통플랫폼 매출은 독립 트렌드 예측 (H_DIST.rev 기반) → 통신은 잔여값
+  const dist_rev27 = ce('dist_rev', trendNext(h(d26.rev_ann, H_DIST.rev)));
+  const tel_rev27 = ce('tel_rev', rev27 - dist_rev27);
 
   // ── 매출원가 ──
   const cogs27 = ce('cogs', trendNext(h(s26.cogs_ann, H_TOT.cogs)));
@@ -5907,8 +5906,9 @@ function get2027EForecast(){
   // ── 판관비 / 영업이익 ──
   const sga27 = labor27 + mkt27 + rent27 + dep27 + opex27;
   const op27 = ce('op', gp27 - sga27);
-  const tel_op27 = ce('tel_op', Math.round(op27 * (t26.op_ann/Math.max(1,s26.op_ann))));
-  const dist_op27 = op27 - tel_op27;
+  // ★ 유통플랫폼 영업이익은 독립 트렌드 예측 (H_DIST.op 기반) → 통신은 잔여값
+  const dist_op27 = ce('dist_op', trendNext(h(d26.op_ann, H_DIST.op)));
+  const tel_op27 = ce('tel_op', op27 - dist_op27);
 
   // ── 수수료수입 세부 ──
   const pol27  = ce('pol',  trendNext(h(t26.pol_ann,  H_TOT.pol)));
@@ -11526,8 +11526,8 @@ function simPLv2(){
     const aRev=actualGet('rev',m), aCogs=actualGet('cogs',m);
     const aLabor=actualGet('labor',m), aMkt=actualGet('mkt',m);
     const aOpex=actualGet('opex',m), aOp=actualGet('op',m);
-    if(aRev!==null)   { tot_rev_mon[m]=aRev; tel_rev_mon[m]=aRev; }
-    if(aCogs!==null)  { tot_cogs_mon[m]=aCogs; tel_cogs_mon[m]=aCogs; }
+    if(aRev!==null)   { tot_rev_mon[m]=aRev; tel_rev_mon[m]=aRev-(dist_rev_mon[m]||0); }
+    if(aCogs!==null)  { tot_cogs_mon[m]=aCogs; tel_cogs_mon[m]=aCogs-(dist_cogs_mon[m]||0); }
     if(aLabor!==null) tel_labor_mon[m]=aLabor;
     if(aMkt!==null)   tel_mkt_mon[m]=aMkt;
     if(aOpex!==null)  tel_opex_mon[m]=aOpex;
@@ -11575,8 +11575,9 @@ function simPLv2(){
   let adjSgaAnn=_sum(tel_sga_mon), adjOpAnn=_sum(tel_op_mon);
 
   // ── 탑다운 목표 스케일링 (반영 버튼 눌렀을 때) ──────────────
-  let totRevAnnFinal = _sum(tot_rev_mon);
-  let totOpAnnFinal  = _sum(tot_op_mon);
+  // ★ 전사 연간합 = 통신 + 유통 정확 합산 (반올림 오차 없이 tot = tel + dist 보장)
+  let totRevAnnFinal = adjRevAnn + dist_rev_ann;
+  let totOpAnnFinal  = adjOpAnn + dist_op_ann;
 
   const _tdPreviewBU = _TD.rev > 0 && !_TD.bridged &&
     (_TD.active || Math.abs(_TD.rev - totRevAnnFinal) > 50 || Math.abs(_TD.op - totOpAnnFinal) > 50);
@@ -11626,8 +11627,8 @@ function simPLv2(){
     adjMktAnn  = _sum(tel_mkt_mon); adjRentAnn = _sum(tel_rent_mon);
     adjDepAnn  = _sum(tel_dep_mon); adjOpexAnn = _sum(tel_opex_mon);
     adjSgaAnn  = _sum(tel_sga_mon); adjOpAnn   = _sum(tel_op_mon);
-    totRevAnnFinal = _sum(tot_rev_mon);
-    totOpAnnFinal  = _sum(tot_op_mon);
+    totRevAnnFinal = adjRevAnn + dist_rev_ann;
+    totOpAnnFinal  = adjOpAnn + dist_op_ann;
   }
 
   // 월별 표시는 반올림값 사용, 연간 비교/검증은 원값(raw) 합계를 그대로 유지
@@ -11845,11 +11846,9 @@ function plTable(rows26E, hRows, H_ref){
   }
   // 섹션 행 (r-tot, r-gp, r-sga, r-op) 에 접기 토글 버튼 추가
   function _collapseTd(r){
-    const sectionKey = (r.l||'').replace(/^[\s\d\.ⅠⅡⅢⅣⅤ]+/,'').replace(/\s+/g,'').slice(0,6);
-    const isOpen = typeof _plCollapsed==='undefined' || !_plCollapsed.has(r.l.trim().replace(/^[^가-힣A-Za-z]+/,'').split(/[\s\(]/)[0]);
+    const key=r.l.trim().replace(/^[IVⅠ-Ⅴ\d\.\s]+/,'').replace(/^[\s\(]+/,'').split(' ')[0];
     const hasSubs = ['r-tot','r-sga'].includes(r.cls||'') || (r.cls==='r-sub' && ['인건비','마케팅비용','임차관리비','감가상각비','기타운영비','수수료수입','상품매출'].includes(key));
     if(!hasSubs) return r.l;
-    const key=r.l.trim().replace(/^[IVⅠ-Ⅴ\d\.\s]+/,'').replace(/^[\s\(]+/,'').split(' ')[0];
     const collapsed = typeof _plCollapsed!=='undefined' && _plCollapsed.has(key);
     return `<span style="display:inline-flex;align-items:center;gap:4px;cursor:pointer" onclick="togglePLSection('${key}')">${collapsed?'▶':'▼'} <span>${r.l}</span></span>`;
   }
