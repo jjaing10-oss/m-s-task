@@ -9502,6 +9502,38 @@ function bmApplyToF27(){
   f27ComputeMerged26(); f27Compute(); f27Save();
 }
 
+// ★ BM 업로드 → BM_MONTHLY_2025._2026 동적 업데이트 → loadBMActuals2026() 자동 실행
+function bmSyncTo26E(){
+  const months26 = BM_LOADED_MONTHS.filter(m => {
+    const e = BM_ACT[String(m)];
+    return e && (!e.year || e.year===2026);
+  }).sort((a,b)=>a-b);
+  if(!months26.length) return;
+
+  // _2026 배열 재구성 (0월부터 연속된 월까지)
+  const nAct = months26[months26.length-1]+1; // 마지막 월+1 = 배열 길이
+  const keys26 = [
+    {src:'bm_rev',  dst:'rev_2026'},
+    {src:'bm_prod', dst:'prod_2026'},
+    {src:'bm_comm', dst:'comm_2026'},
+    {src:'bm_cogs', dst:'cogs_2026'},
+    {src:'gp',      dst:'gp_2026'},
+    {src:'sga',     dst:'sga_2026'},
+    {src:'op',      dst:'op_2026'},
+  ];
+  keys26.forEach(function(k){
+    var arr = [];
+    for(var m=0; m<nAct; m++){
+      var e = BM_ACT[String(m)];
+      arr.push(e ? (e[k.src]||0) : (BM_MONTHLY_2025[k.dst]&&BM_MONTHLY_2025[k.dst][m]||0));
+    }
+    BM_MONTHLY_2025[k.dst] = arr;
+  });
+
+  // 예측 실행
+  loadBMActuals2026();
+}
+
 // BM 파일 파서
 function parseBMActualFile(file){
   if(typeof XLSX === 'undefined'){ alert('XLSX 라이브러리가 로드되지 않았습니다.'); return; }
@@ -9509,28 +9541,40 @@ function parseBMActualFile(file){
   reader.onload = e => {
     try{
       const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
-      // '전사손익계산서' 시트 우선 탐색
-      const shName = wb.SheetNames.find(n=>n.includes('전사손익'))||wb.SheetNames[0];
+      // '전사손익계산서' → '종합' 순으로 시트 탐색
+      const shName = wb.SheetNames.find(n=>n.includes('전사손익'))
+                  || wb.SheetNames.find(n=>n==='종합')
+                  || wb.SheetNames[0];
       const ws = wb.Sheets[shName];
       const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:0, raw:true});
 
-      // 헤더에서 월 추출: "'26년 1월" → 0
-      let mon = -1;
-      if(data[0]){
+      // 헤더/파일명에서 년도+월 추출
+      let mon = -1, bmYear = 2026;
+      // 파일명에서 먼저 시도: "2026년 1월" 또는 "26년 1월"
+      const fnMatch = file.name.match(/(20)?(\d{2})년.*?(\d{1,2})월/);
+      if(fnMatch){ bmYear = 2000+parseInt(fnMatch[2]); mon = parseInt(fnMatch[3])-1; }
+      // 헤더에서 보완
+      if(data[0] && mon < 0){
         const hdr = String(data[0][1]||data[0][0]||'');
         const m = hdr.match(/(\d+)월/);
         if(m) mon = parseInt(m[1])-1;
+        const ym = hdr.match(/(20)?(\d{2})년/);
+        if(ym) bmYear = 2000+parseInt(ym[2]);
       }
-      if(mon < 0 || mon > 11){ alert('월 정보를 파일에서 찾을 수 없습니다.\n헤더를 확인해주세요 (예: "26년 1월").'); return; }
+      if(mon < 0 || mon > 11){ alert('월 정보를 파일에서 찾을 수 없습니다.\n파일명에 "2026년 1월" 형식이 포함되어야 합니다.'); return; }
 
-      // 항목 추출
+      // 항목 추출 (장식 공백 대응: 내부 다중공백 → 단일공백으로 정규화)
+      function normLabel(s){ return s.replace(/\s+/g,' ').trim(); }
+      const BM_NORM_MAP = BM_LABEL_MAP.map(([lbl,key])=>[normLabel(lbl),key]);
       const raw = {};
+      // 종합 시트면 col B(합계), 전사손익계산서면 col B(단일값)
+      const valCol = 1; // column B (0-indexed)
       data.forEach(row=>{
         if(!row||!row[0]) return;
-        const lbl = String(row[0]).trimEnd(); // 오른쪽 공백만 제거
-        for(const [mapLbl, mapKey] of BM_LABEL_MAP){
+        const lbl = normLabel(String(row[0]));
+        for(const [mapLbl, mapKey] of BM_NORM_MAP){
           if(lbl===mapLbl){
-            const v = typeof row[1]==='number' ? row[1] : parseFloat(String(row[1]).replace(/,/g,''));
+            const v = typeof row[valCol]==='number' ? row[valCol] : parseFloat(String(row[valCol]).replace(/,/g,''));
             if(!isNaN(v)) raw[mapKey] = Math.round(v/1e6); // 원→백만원
             break;
           }
@@ -9547,6 +9591,8 @@ function parseBMActualFile(file){
 
       const entry = {
         bm_rev:  raw.bm_rev||0,  // BM기준 매출(채권승계 포함)
+        bm_prod: raw.bm_prod||0,
+        bm_comm: raw.bm_comm||0,
         bm_cogs: raw.bm_cogs||0,
         gp:      raw.gp||0,
         sga:     raw.sga||0,
@@ -9556,6 +9602,7 @@ function parseBMActualFile(file){
         fee:raw.fee||0, mtg:raw.mtg||0, trans:raw.trans||0,
         loaded_at: new Date().toISOString().slice(0,16),
         filename: file.name,
+        year: bmYear,
       };
 
       BM_ACT[String(mon)] = entry;
@@ -9563,8 +9610,12 @@ function parseBMActualFile(file){
       BM_LOADED_MONTHS.sort((a,b)=>a-b);
       bmActSave();
       bmApplyToF27();
+
+      // ★ BM 업로드 → 26E 실적 자동 반영 + 예측 갱신
+      if(bmYear===2026){ bmSyncTo26E(); }
+
       renderF27Upload();
-      alert(`✅ ${mon+1}월 BM실적 업로드 완료!\nGP: ${entry.gp.toLocaleString()}백만 / 영업이익: ${entry.op.toLocaleString()}백만`);
+      alert(`✅ ${bmYear}년 ${mon+1}월 BM실적 업로드 완료!\n매출: ${entry.bm_rev.toLocaleString()}백만 (상품${entry.bm_prod.toLocaleString()} + 수수료${entry.bm_comm.toLocaleString()})\nGP: ${entry.gp.toLocaleString()}백만 / 영업이익: ${entry.op.toLocaleString()}백만`);
     }catch(err){ alert('파일 파싱 오류: '+err.message); }
   };
   reader.readAsArrayBuffer(file);
@@ -9575,8 +9626,8 @@ bmActLoad();
 f27Load();
 if(!F27.merged26) f27ComputeMerged26();
 if(!F27.forecast27) f27Compute();
-// BM 실적이 있으면 F27에 재적용
-if(Object.keys(BM_ACT).length>0) bmApplyToF27();
+// BM 실적이 있으면 F27 + 26E에 재적용
+if(Object.keys(BM_ACT).length>0){ bmApplyToF27(); bmSyncTo26E(); }
 
 
 
