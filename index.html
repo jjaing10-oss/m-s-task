@@ -209,6 +209,36 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .sim-col{color:#d97706!important;font-weight:700!important}
 .link-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #eef2f7;font-size:11px}
 
+/* ══ FREEZE PANES ══ */
+.tbl-freeze{overflow:auto;max-height:75vh;border:1px solid #dde3ee;border-radius:8px}
+.tbl-freeze .tbl{border-collapse:separate;border-spacing:0}
+.tbl-freeze .tbl thead th{position:sticky;top:0;z-index:3;background:#f8fafc;box-shadow:0 1px 0 #dde3ee}
+.tbl-freeze .tbl thead th:first-child{z-index:4;left:0}
+.tbl-freeze .tbl td:first-child,
+.tbl-freeze .tbl th:first-child{position:sticky;left:0;z-index:2;background:inherit}
+.tbl-freeze .tbl tbody td:first-child{background:#fff}
+.tbl-freeze .tbl tr.mj td:first-child{background:#eff6ff}
+.tbl-freeze .tbl tr.r-tot td:first-child{background:#eff6ff}
+.tbl-freeze .tbl tr.r-gp td:first-child{background:#ecfdf5}
+.tbl-freeze .tbl tr.r-op td:first-child{background:#fff0f0}
+.tbl-freeze .tbl tr.op td:first-child{background:#ecfdf5}
+.tbl-freeze .tbl tr:hover td:first-child{background:#f1f5f9}
+
+/* ══ CONDITIONAL FORMATTING ══ */
+.cf-up-strong{background:rgba(16,185,129,.15)!important;color:#047857!important;font-weight:700}
+.cf-up-mild{background:rgba(16,185,129,.07)!important;color:#059669!important}
+.cf-down-mild{background:rgba(239,68,68,.06)!important;color:#dc2626!important}
+.cf-down-strong{background:rgba(239,68,68,.15)!important;color:#991b1b!important;font-weight:700}
+.cf-flat{color:#6b7280}
+.cf-bar{position:relative;overflow:hidden}
+.cf-bar::before{content:'';position:absolute;left:0;top:0;bottom:0;background:rgba(59,130,246,.08);transition:width .3s;pointer-events:none}
+
+/* ══ DATA VALIDATION ══ */
+.dv-warn{outline:2px solid #f59e0b!important;outline-offset:-2px;position:relative}
+.dv-warn::after{content:'⚠';position:absolute;top:0;right:2px;font-size:8px;color:#d97706}
+.dv-error{outline:2px solid #ef4444!important;outline-offset:-2px}
+.dv-error::after{content:'✖';position:absolute;top:0;right:2px;font-size:8px;color:#ef4444}
+
 /* ══ ALERTS ══ */
 .al{padding:10px 14px;border-radius:10px;margin-bottom:14px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600}
 .al.ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#059669}
@@ -951,15 +981,21 @@ body.edit-mode{background:var(--bg)!important}
   <span class="fb-label">셀</span>
   <span class="fb-cell" id="fb-cellname">—</span>
   <span class="fb-sep">ƒx</span>
-  <span class="fb-label">수식값</span>
+  <input type="text" id="fb-input" placeholder="값 또는 수식 입력 (=100*1.1)"
+    style="flex:1;min-width:120px;padding:3px 8px;border:1px solid #dde3ee;border-radius:5px;font-family:'Consolas','Courier New',monospace;font-size:12px;color:#111827;outline:none;background:#fff;transition:border-color .15s"
+    onfocus="this.style.borderColor='#3b82f6';this.style.boxShadow='0 0 0 2px rgba(59,130,246,.15)'"
+    onblur="this.style.borderColor='#dde3ee';this.style.boxShadow='none'"
+  >
+  <span class="fb-sep" style="font-size:10px;color:#9ca3af">|</span>
+  <span class="fb-label">기준</span>
   <span class="fb-formula" id="fb-formula">—</span>
   <span id="fb-override-wrap" style="display:none">
     <span class="fb-sep" style="margin:0 4px">▶</span>
-    <span class="fb-label">수동입력</span>
+    <span class="fb-label">편집값</span>
     <span class="fb-override" id="fb-override">—</span>
   </span>
-  <span class="fb-hint">Enter 저장 &nbsp;·&nbsp; Esc 취소 &nbsp;·&nbsp; 빈값+Enter → 수식 복원</span>
-  <button class="fb-reset" id="fb-reset-btn" onclick="_ceClearCurrent()" title="수식값으로 복원" style="display:none">🗑 수식복원</button>
+  <span class="fb-hint" style="font-size:9.5px">Enter 저장 · Esc 취소</span>
+  <button class="fb-reset" id="fb-reset-btn" onclick="_ceClearCurrent()" title="수식값으로 복원" style="display:none">🗑 복원</button>
 </div>
 
 <div id="sheet_dashboard" class="sheet active">
@@ -1151,6 +1187,7 @@ body.edit-mode{background:var(--bg)!important}
   <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:7px;padding:8px 12px">
     <div style="font-size:10px;color:var(--t3);margin-bottom:6px">현재 설정(탑다운·셀편집·월별조정) 저장 후 전환 가능</div>
     <div id="_scenario_btns"></div>
+    <button onclick="_scenarioCompare()" style="margin-top:6px;width:100%;padding:6px 12px;border-radius:6px;border:1px solid rgba(124,58,237,.25);background:rgba(124,58,237,.06);color:#7c3aed;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">📊 시나리오 비교</button>
   </div>
   <!-- /2026년 목표 패널 -->
 
@@ -2725,12 +2762,12 @@ const MONTHS_KO=['1월','2월','3월','4월','5월','6월','7월','8월','9월',
 const MONTHS_NUM=['1','2','3','4','5','6','7','8','9','10','11','12'];
 
 // ── 전역 토스트 알림 ──
-function _toast(msg){
+function _toast(msg, bg, dur){
   var t=document.createElement('div');
-  t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 20px;border-radius:10px;font-size:12.5px;z-index:999999;box-shadow:0 4px 14px rgba(0,0,0,.2);transition:opacity .3s;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis';
+  t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:'+(bg||'#1e293b')+';color:#fff;padding:10px 20px;border-radius:10px;font-size:12.5px;z-index:999999;box-shadow:0 4px 14px rgba(0,0,0,.2);transition:opacity .3s;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis';
   t.textContent=msg;
   document.body.appendChild(t);
-  setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.remove(); },300); },2000);
+  setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.remove(); },300); }, dur||2000);
 }
 
 // ── 시뮬레이션 주요 상수 (매직넘버 추출) ──
@@ -5110,32 +5147,35 @@ function switchMain(tab){
     }
   };
 
-  if(tab==='dashboard') safeRender(renderDashboard,'dashboard_kpis','대시보드 렌더 오류');
+  // ★ Lazy Rendering: 렌더 후 dirty 플래그 제거
+  const _lazyRender=(fn,id,msg)=>{ safeRender(fn,id,msg); _dirtySheets.delete(tab); };
+
+  if(tab==='dashboard') _lazyRender(renderDashboard,'dashboard_kpis','대시보드 렌더 오류');
   if(tab==='pl'){
-    requestAnimationFrame(()=>safeRender(renderPL,'pl_out','전사 손익 렌더 오류'));
-    setTimeout(()=>safeRender(renderPL,'pl_out','전사 손익 렌더 오류'),60);
+    requestAnimationFrame(()=>_lazyRender(renderPL,'pl_out','전사 손익 렌더 오류'));
+    setTimeout(()=>_lazyRender(renderPL,'pl_out','전사 손익 렌더 오류'),60);
   }
-  if(tab==='wireless') safeRender(renderWireless,'w_out','무선 렌더 오류');
-  if(tab==='wireline') safeRender(renderWireline,'wl_out','유선 렌더 오류');
+  if(tab==='wireless') _lazyRender(renderWireless,'w_out','무선 렌더 오류');
+  if(tab==='wireline') _lazyRender(renderWireline,'wl_out','유선 렌더 오류');
   if(tab==='distplatform'){
-    requestAnimationFrame(()=>safeRender(renderDP,'dp_out','유통플랫폼 렌더 오류'));
-    setTimeout(()=>safeRender(renderDP,'dp_out','유통플랫폼 렌더 오류'),60);
+    requestAnimationFrame(()=>_lazyRender(renderDP,'dp_out','유통플랫폼 렌더 오류'));
+    setTimeout(()=>_lazyRender(renderDP,'dp_out','유통플랫폼 렌더 오류'),60);
   }
-  if(tab==='labor') safeRender(renderLB,'lb_out','인건비 렌더 오류');
-  if(tab==='infra') safeRender(renderIF,'if_out','인프라 렌더 오류');
-  if(tab==='depre') safeRender(renderDEP,'dep_out','감가상각 렌더 오류');
-  if(tab==='opex') safeRender(renderOX,'ox_out','기타운영비 렌더 오류');
-  if(tab==='etcfee') safeRender(renderEF,'ef_out','기타수수료 렌더 오류');
-  if(tab==='verify') safeRender(renderVerify,'verify_out','손익검증 렌더 오류');
-  if(tab==='plan_vs_actual') safeRender(renderPlanVsActual,'pva_out','실적분석 렌더 오류');
-  if(tab==='ref_sheets') safeRender(renderRefSheets,'ref_out','참고시트 렌더 오류');
-  if(tab==='midterm') safeRender(renderMidterm,'midterm_out','중기계획 렌더 오류');
-  if(tab==='settings'){ safeRender(renderSettings,'settings_out','설정 렌더 오류'); checkTrend(); _checkSavedSnapshot(); }
-  if(tab==='monthly_track') safeRender(renderMonthlyTrack,'mtrack_grid','월별추적 렌더 오류');
-  if(tab==='f27_upload') safeRender(renderF27Upload,'f27_upload_out','실적업로드 렌더 오류');
-  if(tab==='f27_merged26') safeRender(renderF27Merged26,'f27_merged26_out','26년합산 렌더 오류');
-  if(tab==='f27_forecast') safeRender(renderF27Forecast,'f27_forecast_out','27년예측 렌더 오류');
-  if(tab==='exec_report') safeRender(renderExecReport,'exec_report_out','임원보고서 렌더 오류');
+  if(tab==='labor') _lazyRender(renderLB,'lb_out','인건비 렌더 오류');
+  if(tab==='infra') _lazyRender(renderIF,'if_out','인프라 렌더 오류');
+  if(tab==='depre') _lazyRender(renderDEP,'dep_out','감가상각 렌더 오류');
+  if(tab==='opex') _lazyRender(renderOX,'ox_out','기타운영비 렌더 오류');
+  if(tab==='etcfee') _lazyRender(renderEF,'ef_out','기타수수료 렌더 오류');
+  if(tab==='verify') _lazyRender(renderVerify,'verify_out','손익검증 렌더 오류');
+  if(tab==='plan_vs_actual') _lazyRender(renderPlanVsActual,'pva_out','실적분석 렌더 오류');
+  if(tab==='ref_sheets') _lazyRender(renderRefSheets,'ref_out','참고시트 렌더 오류');
+  if(tab==='midterm') _lazyRender(renderMidterm,'midterm_out','중기계획 렌더 오류');
+  if(tab==='settings'){ _lazyRender(renderSettings,'settings_out','설정 렌더 오류'); checkTrend(); _checkSavedSnapshot(); }
+  if(tab==='monthly_track') _lazyRender(renderMonthlyTrack,'mtrack_grid','월별추적 렌더 오류');
+  if(tab==='f27_upload') _lazyRender(renderF27Upload,'f27_upload_out','실적업로드 렌더 오류');
+  if(tab==='f27_merged26') _lazyRender(renderF27Merged26,'f27_merged26_out','26년합산 렌더 오류');
+  if(tab==='f27_forecast') _lazyRender(renderF27Forecast,'f27_forecast_out','27년예측 렌더 오류');
+  if(tab==='exec_report') _lazyRender(renderExecReport,'exec_report_out','임원보고서 렌더 오류');
 }
 
 function renderDashboard(){
@@ -5245,16 +5285,32 @@ function renderDashboard(){
     ], "switchMain('pl');switchPLTab('dist')")}
   </div>`;
   // ── KPI 카드 렌더 (4열 균등, 세그먼트 배너 포함) ──
-  const _kpiCard = (c) => {
+  // 스파크라인용 연도별 히스토리컬 데이터 (2022~현재)
+  const _spHist = {
+    rev: [H.revenue[2]||0,H.revenue[3]||0,H.revenue[4]||0,H.revenue[5]||0,rev].map(v=>v/100),
+    op:  [H.op[2]||0,H.op[3]||0,H.op[4]||0,H.op[5]||0,op].map(v=>v/100),
+    ebitda: [(H.op[2]||0)+(H.depreciation[2]||0),(H.op[3]||0)+(H.depreciation[3]||0),(H.op[4]||0)+(H.depreciation[4]||0),(H.op[5]||0)+(H.depreciation[5]||0),ebitda].map(v=>v/100),
+    gpm: [H.revenue[2]?H.gross_profit[2]/H.revenue[2]*100:0,H.revenue[3]?H.gross_profit[3]/H.revenue[3]*100:0,H.revenue[4]?H.gross_profit[4]/H.revenue[4]*100:0,H.revenue[5]?H.gross_profit[5]/H.revenue[5]*100:0,margin],
+    opm: [H.revenue[2]?H.op[2]/H.revenue[2]*100:0,H.revenue[3]?H.op[3]/H.revenue[3]*100:0,H.revenue[4]?H.op[4]/H.revenue[4]*100:0,H.revenue[5]?H.op[5]/H.revenue[5]*100:0,opm],
+    capa:[HIST?.wire?.['2022']?.capa||0,HIST?.wire?.['2023']?.capa||0,HIST?.wire?.['2024']?.capa||0,HIST?.wire?.['2025']?.capa||0,capa].map(v=>v/10000),
+  };
+  const _spKeys = ['rev','op','ebitda','gpm','opm','capa'];
+
+  const _kpiCard = (c, idx) => {
     const diff=c[3]||0, isPct=!!c[6], color=c[5]||'#2563eb', jump=c[7]||'pl';
     const pos=diff>=0;
     const badge=isPct?`${pos?'+':''}${diff.toFixed(1)}%p`:`${pos?'+':''}${diff.toFixed(1)}% YoY`;
     const val=isPct?c[1].toFixed(1):fmt(c[1]);
+    const spData=_spHist[_spKeys[idx]]||[];
+    const spSvg=spData.length?sparkline(spData,{w:80,h:26,color:color,showDots:true}):'';
     return `<div onclick="switchPrimaryTab('${jump==='verify'?'report':'edit'}');switchMain('${jump}')"
       style="background:#fff;border:1px solid #e8eef6;border-radius:12px;padding:14px 16px;cursor:pointer;
              border-top:3px solid ${color};transition:box-shadow .15s;min-width:0"
       onmouseenter="this.style.boxShadow='0 4px 20px ${color}22'" onmouseleave="this.style.boxShadow='none'">
-      <div style="font-size:10px;font-weight:600;color:#94a3b8;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c[0]}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:10px;font-weight:600;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c[0]}</div>
+        <div style="flex-shrink:0;margin-left:4px" title="2022~${activeYearNum}E 트렌드">${spSvg}</div>
+      </div>
       <div style="font-size:22px;font-weight:900;color:#0f172a;line-height:1;margin-bottom:6px;white-space:nowrap">
         ${val}<span style="font-size:12px;font-weight:600;color:#64748b;margin-left:2px">${c[2]}</span>
       </div>
@@ -5262,9 +5318,6 @@ function renderDashboard(){
         <span style="font-size:10px;font-weight:700;color:${pos?'#059669':'#dc2626'};background:${pos?'#f0fdf4':'#fff1f2'};padding:2px 7px;border-radius:99px">
           ${pos?'▲':'▼'} ${badge}
         </span>
-      </div>
-      <div style="height:2px;background:#f1f5f9;border-radius:2px;margin-bottom:6px">
-        <div style="height:100%;width:${Math.min(100,Math.abs(diff)+40)}%;background:${pos?color:'#f87171'};border-radius:2px;transition:width .5s"></div>
       </div>
       <div style="font-size:9.5px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c[4]}</div>
     </div>`;
@@ -5274,7 +5327,7 @@ function renderDashboard(){
   kpiWrap.innerHTML = `<div style="display:flex;flex-direction:column;gap:12px">`
     + segBanner
     + `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">`
-    + cards.map(_kpiCard).join('')
+    + cards.map((c,i)=>_kpiCard(c,i)).join('')
     + `</div></div>`;
 
   const revYears=['2022','2023','2024','2025'];
@@ -7171,6 +7224,85 @@ function f27AutoParseSheet(data){
 /* ── 숫자 포맷 ── */
 function f27Fmt(v){ if(v==null||isNaN(v)) return '-'; return Math.round(v).toLocaleString('ko-KR'); }
 
+/* ── 조건부 서식 유틸 ── */
+function cfClass(yoyPct){
+  // YoY% 기반 조건부 서식 클래스 반환
+  if(yoyPct==null||isNaN(yoyPct)) return '';
+  const abs=Math.abs(yoyPct);
+  if(abs<1) return 'cf-flat';
+  if(yoyPct>=20) return 'cf-up-strong';
+  if(yoyPct>=5) return 'cf-up-mild';
+  if(yoyPct<=-20) return 'cf-down-strong';
+  if(yoyPct<=-5) return 'cf-down-mild';
+  return '';
+}
+function cfMonthClass(val, refVal){
+  // 월별 값 vs 기준값 비교 (계획 대비 실적 등)
+  if(!refVal||!val) return '';
+  const pct=(val-refVal)/Math.abs(refVal)*100;
+  return cfClass(pct);
+}
+function cfHeatStyle(val, minVal, maxVal){
+  // 히트맵 스타일: 값 범위 내에서 강도 계산
+  if(minVal===maxVal||val==null) return '';
+  const ratio=Math.max(0,Math.min(1,(val-minVal)/(maxVal-minVal)));
+  const r=Math.round(239*ratio+16*(1-ratio));
+  const g=Math.round(68*ratio+185*(1-ratio));
+  const b=Math.round(68*ratio+129*(1-ratio));
+  return `background:rgba(${r},${g},${b},.12)`;
+}
+
+/* ── SVG 스파크라인 유틸 ── */
+function sparkline(vals, opts){
+  // vals: 숫자 배열, opts: {w, h, color, fill, showDots, showLast}
+  if(!vals||!vals.length) return '';
+  const o=Object.assign({w:80,h:22,color:'#3b82f6',fill:true,showDots:false,showLast:true}, opts||{});
+  const n=vals.length;
+  const mn=Math.min(...vals), mx=Math.max(...vals);
+  const range=mx-mn||1;
+  const pad=2;
+  const pts=vals.map((v,i)=>{
+    const x=pad+i/(n-1||1)*(o.w-2*pad);
+    const y=pad+(1-(v-mn)/range)*(o.h-2*pad);
+    return {x,y,v};
+  });
+  const line=pts.map((p,i)=>(i===0?'M':'L')+p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ');
+  let svg=`<svg width="${o.w}" height="${o.h}" viewBox="0 0 ${o.w} ${o.h}" style="display:inline-block;vertical-align:middle;overflow:visible">`;
+  if(o.fill){
+    svg+=`<path d="${line} L${pts[n-1].x.toFixed(1)},${o.h} L${pts[0].x.toFixed(1)},${o.h} Z" fill="${o.color}" opacity=".1"/>`;
+  }
+  svg+=`<path d="${line}" fill="none" stroke="${o.color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  if(o.showLast){
+    const last=pts[n-1];
+    svg+=`<circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="2.5" fill="${o.color}"/>`;
+  }
+  if(o.showDots){
+    pts.forEach(p=>{ svg+=`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="1.5" fill="${o.color}" opacity=".5"/>`; });
+  }
+  svg+='</svg>';
+  return svg;
+}
+function sparkBar(vals, opts){
+  // 미니 바 차트
+  if(!vals||!vals.length) return '';
+  const o=Object.assign({w:80,h:20,color:'#3b82f6',negColor:'#ef4444'}, opts||{});
+  const n=vals.length;
+  const mx=Math.max(...vals.map(Math.abs))||1;
+  const bw=Math.max(2, (o.w-n)/n);
+  const gap=1;
+  let svg=`<svg width="${o.w}" height="${o.h}" viewBox="0 0 ${o.w} ${o.h}" style="display:inline-block;vertical-align:middle">`;
+  const mid=o.h/2;
+  vals.forEach((v,i)=>{
+    const x=i*(bw+gap);
+    const h=Math.abs(v)/mx*(o.h/2-1);
+    const y=v>=0?mid-h:mid;
+    svg+=`<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="1" fill="${v>=0?o.color:o.negColor}" opacity=".7"/>`;
+  });
+  svg+=`<line x1="0" y1="${mid}" x2="${o.w}" y2="${mid}" stroke="#cbd5e1" stroke-width=".5"/>`;
+  svg+='</svg>';
+  return svg;
+}
+
 /* ── 스케일팩터 표시용 ── */
 function f27GetScale(key){
   if(F27.lastActualMonth < 0 || !F27.actual26 || !F27.actual26[key]) return null;
@@ -7542,7 +7674,7 @@ function renderF27Merged26(){
     :lastM>=11?'<span style="background:#f0fdf4;border:1px solid #bbf7d0;color:#059669;padding:3px 8px;border-radius:5px;font-size:10.5px;font-weight:700">✅ 전월 실적 반영 완료</span>'
     :'<span style="background:#f9fafb;border:1px solid #e5e7eb;color:#6b7280;padding:3px 8px;border-radius:5px;font-size:10.5px">📋 전체 계획값</span>';
 
-  const th='padding:7px 10px;border:1px solid #dde3ee;font-weight:700;font-size:10.5px;color:#64748b;background:#f8fafc;text-align:center;white-space:nowrap';
+  const th='padding:7px 10px;border:1px solid #dde3ee;font-weight:700;font-size:10.5px;color:#64748b;background:#f8fafc;text-align:center;white-space:nowrap;position:sticky;top:0;z-index:3';
 
   let html=`
 <div style="max-width:1500px;margin:0 auto">
@@ -7555,9 +7687,9 @@ function renderF27Merged26(){
       <button onclick="switchMain('f27_forecast')" style="padding:5px 14px;background:#e4002b;color:#fff;border:none;border-radius:6px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">🔮 27년 예측 →</button>
     </div>
   </div>
-  <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px;white-space:nowrap">
+  <div class="tbl-freeze" style="max-height:72vh"><table style="width:100%;border-collapse:separate;border-spacing:0;font-size:11.5px;white-space:nowrap">
   <thead><tr>
-    <th style="${th};text-align:left;min-width:150px;position:sticky;left:0;z-index:2">항목 (백만원)</th>
+    <th style="${th};text-align:left;min-width:150px;position:sticky;left:0;z-index:4">항목 (백만원)</th>
     <th style="${th}">연간합산</th><th style="${th}">계획연간</th><th style="${th}">차이</th>
     <th style="${th};min-width:160px;text-align:left;color:#6366f1">시뮬 사유</th>
     ${MO.map((mo,i)=>'<th style="'+th+';'+(i<=lastM?'background:#f0fdf4;color:#059669':i<=lastM+1&&lastM>=0?'background:#eff6ff;color:#1d4ed8':'')+'">'+mo+(i<=lastM?'<br><small style="font-size:9px">실</small>':lastM>=0&&i>lastM?'<br><small style="font-size:9px;color:#1d4ed8">시뮬</small>':'')+'</th>').join('')}
@@ -7585,7 +7717,7 @@ function renderF27Merged26(){
       <td style="border:1px solid #eef2f7;padding:4px 12px;${row.dim?'color:#9ca3af':''};font-weight:${row.bold?700:500};${row.indent?'padding-left:'+(12+row.indent*14)+'px':''};position:sticky;left:0;background:${row.highlight?'rgba(228,0,43,.04)':row.bold?'#fafafa':'#fff'};z-index:1">${row.label}</td>
       <td style="${td};font-weight:${row.bold?700:500};color:${isProfit?(ann>=0?'#059669':'#dc2626'):'#111827'}">${f27Fmt(ann)}</td>
       <td style="${td};color:#9ca3af">${f27Fmt(planAnn)}</td>
-      <td style="${td};color:${Math.abs(diff)<50?'#059669':diff>0?'#d97706':'#dc2626'};font-weight:600">${diff===0?'-':(diff>0?'+':'')+f27Fmt(diff)}</td>
+      <td class="${planAnn?cfClass((diff/Math.abs(planAnn))*100):''}" style="${td};color:${Math.abs(diff)<50?'#059669':diff>0?'#d97706':'#dc2626'};font-weight:600">${diff===0?'-':(diff>0?'+':'')+f27Fmt(diff)}</td>
       <td style="border:1px solid #eef2f7;padding:4px 8px;font-size:9.5px;color:#6366f1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px" title="${reason}">${reason}</td>
       ${mon.map((v,i)=>{
         const isAct=i<=lastM;
@@ -7699,7 +7831,7 @@ function renderF27Forecast(){
   };
 
   const rows=rowSets[viewTab]||rowSets.pl;
-  const th='padding:7px 10px;border:1px solid #dde3ee;font-weight:700;font-size:10.5px;color:#64748b;background:#f8fafc;text-align:center;white-space:nowrap';
+  const th='padding:7px 10px;border:1px solid #dde3ee;font-weight:700;font-size:10.5px;color:#64748b;background:#f8fafc;text-align:center;white-space:nowrap;position:sticky;top:0;z-index:3';
 
   // 요약 카드
   const opm27=fc.op&&fc.rev?(fc.op.ann/fc.rev.ann*100).toFixed(2):'0.00';
@@ -7754,12 +7886,12 @@ function renderF27Forecast(){
     }).join('')}
   </div>
 
-  <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px;white-space:nowrap">
+  <div class="tbl-freeze" style="max-height:72vh"><table style="width:100%;border-collapse:separate;border-spacing:0;font-size:11.5px;white-space:nowrap">
   <thead><tr>
-    <th style="${th};text-align:left;min-width:155px;position:sticky;left:0;z-index:2">항목</th>
+    <th style="${th};text-align:left;min-width:155px;position:sticky;left:0;z-index:4">항목</th>
     <th style="${th};font-size:9px;color:#9ca3af;min-width:75px">예측 로직</th>
     <th style="${th}">27E 연간</th><th style="${th};color:#1d4ed8;background:rgba(219,234,254,.3)">v7.81목표</th><th style="${th}">26E 연간</th><th style="${th}">YoY</th>
-    ${MO.map(mo=>'<th style="'+th+';background:#fff5f5;color:#9f1239">'+mo+'</th>').join('')}
+    ${MO.map(mo=>'<th style="'+th+';background:#fff5f5;color:#9f1239;position:sticky;top:0;z-index:2">'+mo+'</th>').join('')}
   </tr></thead><tbody>`;
 
   const MT27_MAP={rev:'rev',cogs:'cogs',gp:'gp',labor:'labor',mkt:'mkt',dep:'dep',op:'op'};
@@ -7816,7 +7948,7 @@ function renderF27Forecast(){
       <td style="${td};font-weight:${row.bold?700:500};color:${isProfit?(ann27>=0?'#059669':'#dc2626'):'#111827'}">${f27Fmt(ann27)}</td>
       ${mtCell}
       <td style="${td};color:#9ca3af">${f27Fmt(ann26)}</td>
-      <td style="${td};color:${yoy>=0?'#059669':'#dc2626'};font-weight:600">${yoy>=0?'+':''}${yoy.toFixed(1)}%</td>
+      <td class="${cfClass(yoy)}" style="${td};color:${yoy>=0?'#059669':'#dc2626'};font-weight:600">${yoy>=0?'+':''}${yoy.toFixed(1)}%</td>
       ${mon27.map((v,i)=>{
         const isOv=F27.overrides27[row.key+'_'+i]!=null;
         return '<td data-fkey="'+row.key+'" data-fmon="'+i+'" style="'+td+'cursor:pointer;'+(isOv?'background:#fff9e6;color:#d97706;font-weight:700':'background:rgba(255,245,245,.5)')+'" onclick="f27CellClick(\''+row.key+'\','+i+',this)" onmouseenter="if(!this.querySelector(\'input\'))this.style.background=\'#fffbeb\'" onmouseleave="if(!this.querySelector(\'input\'))this.style.background=\''+(isOv?'#fff9e6':'rgba(255,245,245,.5)')+'\'">'+(isOv?'<span title="수동입력">✏️ </span>':'')+f27Fmt(v)+'</td>';
@@ -10444,6 +10576,94 @@ function _scenarioRenderBtns(){
     }).join('');
   }catch(e){ el.textContent = '오류'; }
 }
+// ⑥ 시나리오 비교 뷰 ─────────────────────────────────────
+function _scenarioCompare(){
+  const all = JSON.parse(localStorage.getItem(SCENARIO_LS)||'{}');
+  const saved = Object.entries(all).filter(([_,v])=>v).map(([slot,sc])=>({slot,name:sc.name,ce:sc.ce||{},mon:sc.mon||{},td:sc.td||{}}));
+  if(!saved.length){ _toast('저장된 시나리오가 없습니다.'); return; }
+
+  // 현재 상태 P&L 계산
+  const currentPL = simPLv2();
+  const results = [{name:'📍 현재', pl:currentPL}];
+
+  // 각 시나리오 상태 임시 적용 후 P&L 계산
+  const _origCE = JSON.parse(JSON.stringify(_CE));
+  const _origMON = JSON.parse(JSON.stringify(MON_MANUAL));
+  const _origTD = {rev:_TD.rev, op:_TD.op, capa:_TD.capa, active:_TD.active, bridged:_TD.bridged};
+
+  saved.forEach(sc=>{
+    _CE = JSON.parse(JSON.stringify(sc.ce));
+    MON_MANUAL = JSON.parse(JSON.stringify(sc.mon));
+    if(sc.td){ _TD.rev=sc.td.rev||0; _TD.op=sc.td.op||0; _TD.capa=sc.td.capa||0; }
+    try{ results.push({name:sc.name, pl:simPLv2()}); }catch(e){ results.push({name:sc.name, pl:null}); }
+  });
+
+  // 상태 복원
+  _CE = _origCE;
+  MON_MANUAL = _origMON;
+  _TD.rev=_origTD.rev; _TD.op=_origTD.op; _TD.capa=_origTD.capa; _TD.active=_origTD.active; _TD.bridged=_origTD.bridged;
+
+  // 비교 테이블 렌더
+  const F=v=>v?Math.round(v).toLocaleString('ko-KR'):'—';
+  const items=[
+    {l:'매출', k:s=>s.tot.rev_ann, cls:'r-tot'},
+    {l:'  통신매출', k:s=>s.tel.rev_ann},
+    {l:'  유통매출', k:s=>s.dist.rev_ann},
+    {l:'매출원가', k:s=>s.tot.cogs_ann},
+    {l:'매출총이익', k:s=>s.tot.gp_ann, cls:'r-gp'},
+    {l:'인건비', k:s=>s.tot.labor_ann},
+    {l:'마케팅', k:s=>s.tot.mkt_ann},
+    {l:'임차관리비', k:s=>s.tot.rent_ann},
+    {l:'감가상각비', k:s=>s.tot.dep_ann},
+    {l:'기타운영비', k:s=>s.tot.opex_ann},
+    {l:'영업이익', k:s=>s.tot.op_ann, cls:'r-op', isOp:true},
+    {l:'OPM', k:s=>s.tot.rev_ann?(s.tot.op_ann/s.tot.rev_ann*100):0, isPct:true},
+  ];
+
+  let html='<div style="max-width:900px;margin:0 auto;padding:20px"><div style="font-size:16px;font-weight:800;margin-bottom:16px;color:#111827">📊 시나리오 비교</div>';
+  html+='<div class="tbl-freeze" style="max-height:70vh"><table class="tbl"><thead><tr><th style="min-width:120px">항목 (백만원)</th>';
+  results.forEach(r=>html+=`<th style="min-width:100px;${r.name==='📍 현재'?'color:#1d4ed8;background:rgba(59,130,246,.08)':''}">${r.name}</th>`);
+  if(results.length>=2) html+='<th style="color:#d97706">현재 vs '+results[1].name+'</th>';
+  html+='</tr></thead><tbody>';
+
+  items.forEach(it=>{
+    html+=`<tr class="${it.cls||''}">`;
+    html+=`<td>${it.l}</td>`;
+    const vals=results.map(r=>{
+      if(!r.pl) return null;
+      return it.k(r.pl);
+    });
+    vals.forEach((v,i)=>{
+      const disp=it.isPct?(v!=null?v.toFixed(1)+'%':'—'):F(v);
+      const style=i===0?'color:#1d4ed8;font-weight:700':it.isOp?(v>=0?'color:#059669':'color:#dc2626'):'';
+      html+=`<td style="${style}">${disp}</td>`;
+    });
+    if(vals.length>=2 && vals[0]!=null && vals[1]!=null){
+      const diff=vals[0]-vals[1];
+      const pct=vals[1]?(diff/Math.abs(vals[1])*100):0;
+      const color=it.isOp||it.l.includes('이익')?(diff>=0?'#059669':'#dc2626'):(diff<=0?'#059669':'#dc2626');
+      const cfCl=cfClass(pct);
+      html+=`<td class="${cfCl}" style="color:${color};font-weight:600">${it.isPct?(diff>=0?'+':'')+diff.toFixed(1)+'%p':(diff>=0?'+':'')+F(diff)}</td>`;
+    } else if(vals.length>=2){
+      html+='<td>—</td>';
+    }
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
+  html+='<div style="margin-top:12px;text-align:right"><button onclick="document.getElementById(\'_scCompare\').style.display=\'none\'" style="padding:8px 20px;border-radius:8px;border:1px solid #dde3ee;background:#fff;color:#374151;font-size:12px;cursor:pointer;font-family:inherit">닫기</button></div></div>';
+
+  let overlay=document.getElementById('_scCompare');
+  if(!overlay){
+    overlay=document.createElement('div');
+    overlay.id='_scCompare';
+    overlay.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:9000;overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display='flex';
+  overlay.innerHTML='<div style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);width:100%;max-width:950px">'+html+'</div>';
+  overlay.onclick=function(e){ if(e.target===overlay) overlay.style.display='none'; };
+}
+
 function resetTopDown(){
   _TD.active = false;
   _TD.bridged = false;
@@ -11523,7 +11743,7 @@ function plTable(rows26E, hRows, H_ref){
   YRS.forEach(y=>tbl+=`<th>${y}</th>`);
   tbl+=`<th style="color:var(--or2);font-weight:700">26E목표</th>`;
   if(show27E) tbl+=`<th style="color:var(--gn2);font-weight:700;background:rgba(16,185,129,.08)">27E 예측 ✏️</th>`;
-  tbl+=`<th>YoY</th></tr></thead><tbody>`;
+  tbl+=`<th>YoY</th><th style="min-width:90px;font-size:9px">트렌드</th></tr></thead><tbody>`;
 
   for(let i=0;i<rows26E.length;i++){
     const r=rows26E[i];
@@ -11558,11 +11778,16 @@ function plTable(rows26E, hRows, H_ref){
     }
     const yoyAbs=Math.abs(yoy);
     const yoyPos=yoy>=0;
-    const yoyWarn=yoyAbs>.2?'sp':yoyAbs>.1?'wn':'';
+    const yoyPct=yoy*100;
+    const _cf=cfClass(yoyPct);
     const yoyArrow=yoy>0.005?'↑':yoy<-0.005?'↓':'—';
     const yoyBg=yoyAbs<0.01?'':(yoyPos?'rgba(16,185,129,.08)':'rgba(239,68,68,.08)');
     const yoyTxt=yoyAbs<0.005?'<span style="color:#94a3b8">—</span>':`<span style="font-weight:700;color:${yoyPos?'var(--gn2)':'var(--rd2)'}">${yoyArrow} ${fmtP(yoy)}</span>`;
-    tbl+=`<td class="${yoyWarn}" style="background:${yoyBg}">${yoyTxt}</td></tr>`;
+    tbl+=`<td class="${_cf}" style="${!_cf?'background:'+yoyBg:''}">${yoyTxt}</td>`;
+    // 스파크라인: 2022~26E 트렌드
+    const _spVals=YRS.map(y=>ceGet('pl',r.hk||r.l,y,'ann',h[YR_H[y]]||0)).concat([sim26]);
+    const _spColor=yoyPos?'#059669':'#dc2626';
+    tbl+=`<td style="padding:2px 6px">${sparkline(_spVals,{w:80,h:20,color:_spColor})}</td></tr>`;
   }
   tbl+=`</tbody></table>`;
 
@@ -11669,7 +11894,7 @@ function _renderPL_2027E(el){
     <div style="font-size:11px;color:var(--t3);margin-top:2px">${c.ch}</div></div>`).join('');
 
   // 연간 비교 테이블 (2022~2026E 실적 + 2027E 예측)
-  let tbl = `<div style="overflow-x:auto"><table class="tbl" style="min-width:700px"><thead><tr>
+  let tbl = `<div class="tbl-freeze" style="max-height:65vh"><table class="tbl" style="min-width:700px"><thead><tr>
     <th style="min-width:150px;text-align:left">계정과목 (백만원)</th>
     <th>2022</th><th>2023</th><th>2024</th><th>2025</th>
     <th style="background:rgba(59,130,246,.07)">26E 시뮬</th>
@@ -11691,13 +11916,13 @@ function _renderPL_2027E(el){
       ${[0,1,2,3].map(i=>`<td style="color:var(--t3)">${fmtC(h[i]||0)}</td>`).join('')}
       <td style="background:rgba(59,130,246,.04)">${fmtC(v26)}</td>
       <td style="background:rgba(16,185,129,.07);font-weight:${isMaj?700:500};color:${r.isOp?'var(--gn2)':'var(--t1)'};cursor:pointer" onclick="ce27Edit('${r.k||''}','${r.l.trim()}',${v27})" title="클릭하여 수정">${cellFmt(v27)}</td>
-      <td style="color:${yoyCl};font-weight:700">${yoyStr}</td>
+      <td class="${cfClass(yoyV)}" style="color:${yoyCl};font-weight:700">${yoyStr}</td>
     </tr>`;
   });
   tbl += '</tbody></table></div>';
 
   // 월별 배분 테이블
-  let mt = `<div style="overflow-x:auto"><table class="tbl" style="font-size:10px;min-width:900px"><thead><tr>
+  let mt = `<div class="tbl-freeze" style="max-height:60vh"><table class="tbl" style="font-size:10px;min-width:900px"><thead><tr>
     <th style="min-width:120px;text-align:left">항목</th>
     ${MN.map(m=>`<th>${m}</th>`).join('')}<th>합계</th></tr></thead><tbody>`;
 
@@ -12170,13 +12395,13 @@ function renderPL(){
 
   const _isHistPL = (_activeYear||'2026E') !== '2026E';
   const _histBannerPL = _isHistPL ? _histBanner(_activeYear) : '';
-  const _monCard = _isHistPL ? '' : '<div class="card"><div class="card-t">2026E 월별 배분 <span class="badge" style="background:rgba(59,130,246,.1);color:var(--ac2)">🔗 연동항목 실시간 반영</span></div><div style="overflow-x:auto">' + mt + '</div></div>';
+  const _monCard = _isHistPL ? '' : '<div class="card"><div class="card-t">2026E 월별 배분 <span class="badge" style="background:rgba(59,130,246,.1);color:var(--ac2)">🔗 연동항목 실시간 반영</span></div><div class="tbl-freeze" style="max-height:65vh">' + mt + '</div></div>';
   const _bannerSection = _isHistPL ? _histBannerPL : _planBanner;
   el.innerHTML = _bannerSection
     + _verifyBadge
     + (_actBanner||'')
     + '<div class="mg">' + met_h + '</div>'
-    + '<div class="card"><div class="card-t">' + title + ' — 연간 비교 <span class="badge" style="background:rgba(16,185,129,.1);color:var(--gn2)">2022~2025 실적 | 2026E 시뮬</span></div><div style="overflow-x:auto">' + tbl + '</div></div>'
+    + '<div class="card"><div class="card-t">' + title + ' — 연간 비교 <span class="badge" style="background:rgba(16,185,129,.1);color:var(--gn2)">2022~2025 실적 | 2026E 시뮬</span></div><div class="tbl-freeze" style="max-height:70vh">' + tbl + '</div></div>'
     + _monCard
     + summaryCard
     + (_isHistPL ? '' : (()=>{
@@ -13076,7 +13301,7 @@ function renderPlanVsActual(){
 
   const tblHtml = `<div class="card" style="margin-bottom:10px">
     <div style="font-size:12px;font-weight:700;color:var(--t1);padding:12px 14px 8px">월별 계획 vs 실적 상세</div>
-    <div style="overflow-x:auto"><table class="tbl" style="font-size:11px;min-width:900px">
+    <div class="tbl-freeze" style="max-height:65vh"><table class="tbl" style="font-size:11px;min-width:900px">
       <thead><tr>
         <th style="text-align:left;min-width:100px">항목</th>
         ${MN.map((m,i) => `<th style="${confMonths.includes(i)?'background:rgba(16,185,129,.08);color:#059669':''}">${m}${confMonths.includes(i)?'<br><span style="font-size:8px">실적</span>':''}</th>`).join('')}
@@ -14136,8 +14361,8 @@ function renderDPSection(tab){
   mt+=`</tbody></table>`;
   el.innerHTML=`<div class="mg">${met_h}</div>
     <div style="margin:8px 0 14px;font-size:11px;color:var(--or2);background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.22);border-radius:8px;padding:8px 12px">✎ ${conf.title} 탭도 셀 클릭 후 직접 수정 가능합니다. <b>=1000*1.1</b>, <b>(300+50)/2</b> 같은 사칙연산도 반영됩니다. 월별 값을 바꾸면 합계와 유통플랫폼 합산 손익도 같이 다시 계산됩니다.</div>
-    <div class="card"><div class="card-t">🏪 ${conf.title} 2026E 손익 상세 <span class="badge" style="background:rgba(59,130,246,.12);color:var(--ac2)">엑셀 유통플랫폼 시트 반영 + 직접 수정</span></div><div style="overflow-x:auto">${tbl}</div></div>
-    <div class="card"><div class="card-t">${conf.title} 월별 배분</div><div style="overflow-x:auto">${mt}</div></div>`;
+    <div class="card"><div class="card-t">🏪 ${conf.title} 2026E 손익 상세 <span class="badge" style="background:rgba(59,130,246,.12);color:var(--ac2)">엑셀 유통플랫폼 시트 반영 + 직접 수정</span></div><div class="tbl-freeze" style="max-height:65vh">${tbl}</div></div>
+    <div class="card"><div class="card-t">${conf.title} 월별 배분</div><div class="tbl-freeze" style="max-height:60vh">${mt}</div></div>`;
 }
 
 function simDistPlatform(){
@@ -24030,6 +24255,22 @@ function _fbarShow(label, formulaVal, overrideVal, item){
   if(!fb) return;
   fb.style.display = 'flex';
   document.getElementById('fb-cellname').textContent  = label;
+  // 수식 바 입력 필드 동기화
+  const fbInp = document.getElementById('fb-input');
+  if(fbInp){
+    const existExpr = _ceTarget ? ceGetExpr(_ceTarget.sheet, _ceTarget.item, _ceTarget.yr, _ceTarget.mon) : '';
+    fbInp.value = existExpr || String(Math.round((typeof overrideVal==='object'&&overrideVal?overrideVal.value||0:overrideVal!=null?overrideVal:formulaVal)||0));
+    // 수식 바 Enter/Esc 이벤트
+    fbInp.onkeydown = function(e){
+      if(e.key==='Enter'){
+        e.preventDefault();
+        _fbarCommit(fbInp.value);
+      } else if(e.key==='Escape'){
+        e.preventDefault();
+        _cancelInline();
+      }
+    };
+  }
   const meta = (typeof EDIT_META !== 'undefined') ? (EDIT_META[item] || null) : null;
   const fmtLabel = fmt(Math.round(formulaVal||0));
   document.getElementById('fb-formula').textContent = meta ? `${fmtLabel}  ← ${meta.formula}` : fmtLabel;
@@ -24038,7 +24279,8 @@ function _fbarShow(label, formulaVal, overrideVal, item){
   const hasOverride = overrideVal !== null && overrideVal !== undefined;
   if(hasOverride){
     ow.style.display = 'contents';
-    document.getElementById('fb-override').textContent = fmt(Math.round(overrideVal));
+    const ovDisp = typeof overrideVal==='object'&&overrideVal?overrideVal.value||0:overrideVal;
+    document.getElementById('fb-override').textContent = fmt(Math.round(ovDisp));
     if(rb) rb.style.display = 'inline-block';
   } else {
     ow.style.display = 'none';
@@ -24048,6 +24290,24 @@ function _fbarShow(label, formulaVal, overrideVal, item){
 function _fbarHide(){
   const fb = document.getElementById('ce-fbar');
   if(fb) fb.style.display = 'none';
+  const fbInp = document.getElementById('fb-input');
+  if(fbInp){ fbInp.value=''; fbInp.onkeydown=null; }
+}
+// ── 수식 바에서 직접 입력 커밋 ──
+function _fbarCommit(raw){
+  if(!_ceTarget) return;
+  const {sheet,item,yr,mon,fallback} = _ceTarget;
+  const r = ceEvalArithmetic(raw, fallback||0);
+  if(!r.ok){ _toast(r.message,'#dc2626'); return; }
+  if(r.empty){
+    ceSet(sheet, item, yr, mon, null);
+  } else {
+    ceSet(sheet, item, yr, mon, {value:r.value, expr:r.expr||String(r.value)});
+  }
+  _ceActive = false;
+  _ceTarget = null;
+  _fbarHide();
+  renderAllSheets();
 }
 function _ceClearCurrent(){
   if(!_ceTarget) return;
@@ -24139,6 +24399,15 @@ function _commitInline(silent){
   if(parsed.empty){
     ceSet(sheet, item, yr, mon, null);
   } else {
+    // ★ 데이터 검증: 기준값 대비 50% 이상 변동 시 경고
+    const fb = _ceTarget.fallback||0;
+    if(fb && Math.abs(fb)>100){
+      const pctDiff = (parsed.value - fb) / Math.abs(fb) * 100;
+      if(Math.abs(pctDiff) > 50){
+        const dir = pctDiff > 0 ? '증가' : '감소';
+        if(!silent) _toast(`⚠️ 기준값 대비 ${Math.abs(pctDiff).toFixed(0)}% ${dir} (${fmt(fb)} → ${fmt(Math.round(parsed.value))})`, '#d97706', 3000);
+      }
+    }
     ceSet(sheet, item, yr, mon, {expr:parsed.expr, value:parsed.value});
   }
   _ceActive = false;
@@ -24199,8 +24468,14 @@ function clearCE_single(){
   closeCE();
   renderAllSheets();
 }
+// ── Lazy Rendering: dirty flag + 가시 탭만 렌더 ──
+var _dirtySheets = new Set();
+function markDirty(sheet){
+  if(sheet) _dirtySheets.add(sheet);
+  else ['pl','wireless','wireline','labor','infra','depre','opex','etcfee','distplatform','verify','dashboard','f27_merged26','f27_forecast','midterm','plan_vs_actual','monthly_track','exec_report','ref_sheets'].forEach(s=>_dirtySheets.add(s));
+}
 function renderAllSheets(){
-  // 부분 렌더링: 활성 시트 + PL만 갱신 (성능 최적화)
+  markDirty(); // 모든 시트를 dirty로 표시
   const activeSheet = document.querySelector('.sheet.active');
   const activeId = activeSheet ? activeSheet.id.replace('sheet_','') : 'dashboard';
   const renderMap = {
@@ -24208,12 +24483,19 @@ function renderAllSheets(){
     labor:renderLB, infra:renderIF, depre:renderDEP, opex:renderOX,
     etcfee:renderEF, distplatform:renderDP, verify:renderVerify,
     dashboard:typeof renderDashboard==='function'?renderDashboard:null,
+    f27_merged26:typeof renderF27Merged26==='function'?renderF27Merged26:null,
+    f27_forecast:typeof renderF27Forecast==='function'?renderF27Forecast:null,
+    midterm:typeof renderMidterm==='function'?renderMidterm:null,
+    plan_vs_actual:typeof renderPlanVsActual==='function'?renderPlanVsActual:null,
+    monthly_track:typeof renderMonthlyTrack==='function'?renderMonthlyTrack:null,
+    exec_report:typeof renderExecReport==='function'?renderExecReport:null,
+    ref_sheets:typeof renderRefSheets==='function'?renderRefSheets:null,
   };
   // PL은 항상 갱신 (전사 손익 기반)
-  try{ renderPL(); }catch(_){}
+  try{ renderPL(); _dirtySheets.delete('pl'); }catch(_){}
   // 현재 활성 시트가 PL이 아니면 추가 렌더
   if(activeId!=='pl' && renderMap[activeId]){
-    try{ renderMap[activeId](); }catch(_){}
+    try{ renderMap[activeId](); _dirtySheets.delete(activeId); }catch(_){}
   }
 }
 
