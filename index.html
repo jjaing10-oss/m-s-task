@@ -9413,18 +9413,29 @@ const BM_LABEL_MAP = [
   ['매            출',        'bm_rev'],
   [' 상    품   매   출',     'bm_prod'],
   [' 수수료수입',             'bm_comm'],
-  ['  수수료수입-정책',       'bm_pol'],
-  ['  수수료수입-관리',       'bm_mgmt'],
+  ['  수수료수입-정책',       '_comm_pol'],
+  ['  수수료수입-KT(RDS)',    '_comm_rds'],
+  ['  수수료수입-관리',       '_comm_mgmt'],
+  ['  수수료수입-매장성',     '_comm_store'],
+  ['  수수료수입-P3.0',       '_comm_p3'],
+  ['  수수료수입-기타',       '_comm_etc'],
+  ['  수수료수입-유선',       '_comm_wl'],
+  ['  수수료수입-순액처리',   '_comm_net'],
+  ['  수수료수입-용역',       '_comm_svc'],
   ['매   출  원   가',        'bm_cogs'],
   ['매  출 총 이  익',        'gp'],
   ['판매비와일반관리비',      'sga'],
+  [' 임  원  급  여',         '_exec_sal'],
   [' 직   원    급   여',     '_sal'],
   [' 상      여      금',     '_bonus'],
+  [' 잡      급',             '_misc_sal'],
   [' 퇴직급여충당금전입',     '_retire'],
+  [' 포상비',                 '_reward'],
   [' 복  리  후  생  비',     '_welfare'],
   [' 여  비  교  통  비',     'travel'],
   [' 접      대      비',     'entertain'],
   [' 통      신      비',     'telecom'],
+  [' 수  도  광  열  비',     'utility'],
   [' 세 금 과  공 과 금',     'tax'],
   [' 감  가  상  각  비',     '_dep_tang'],
   [' 무형 고정자산 상각',     '_dep_mu'],
@@ -9581,25 +9592,41 @@ function parseBMActualFile(file){
         }
       });
 
-      // 합산 계산
-      const labor = (raw._sal||0)+(raw._bonus||0)+(raw._retire||0)+(raw._welfare||0);
+      // ★ 수수료 세부 합산: 정책/관리/기타
+      const pol  = (raw._comm_rds||0) + (raw._comm_pol||0);
+      const mgmt = (raw._comm_mgmt||0) + (raw._comm_store||0) + (raw._comm_p3||0);
+      const etc_comm = (raw.bm_comm||0) - pol - mgmt;
+
+      // ★ 인건비 합산 (임원+직원+상여+잡급+퇴직+포상+복리)
+      const labor = (raw._exec_sal||0)+(raw._sal||0)+(raw._bonus||0)+(raw._misc_sal||0)
+                   +(raw._retire||0)+(raw._reward||0)+(raw._welfare||0);
       const dep   = (raw._dep_tang||0)+(raw._dep_mu||0);
       const opex  = (raw.fee||0)+(raw.mtg||0)+(raw.trans||0)+(raw.edu||0)+(raw.telecom||0)
                    +(raw.supplies||0)+(raw.entertain||0)+(raw.insure||0)+(raw.tax||0)
-                   +(raw.car||0)+(raw.travel||0)+(raw.book||0);
+                   +(raw.car||0)+(raw.travel||0)+(raw.book||0)+(raw.utility||0);
       const mkt   = (raw.sp||0)+(raw.sc||0)+(raw.adv||0);
 
       const entry = {
-        bm_rev:  raw.bm_rev||0,  // BM기준 매출(채권승계 포함)
+        bm_rev:  raw.bm_rev||0,
         bm_prod: raw.bm_prod||0,
         bm_comm: raw.bm_comm||0,
         bm_cogs: raw.bm_cogs||0,
         gp:      raw.gp||0,
         sga:     raw.sga||0,
         op:      raw.op||0,
-        labor, dep, rent: raw.rent||0, opex, mkt,
+        // ★ 수수료 세부
+        pol, mgmt, etc_comm,
+        // ★ 인건비/감가 합산
+        labor, dep, dep_tang: raw._dep_tang||0, dep_mu: raw._dep_mu||0,
+        // ★ 임차/마케팅
+        rent: raw.rent||0, mkt,
         sc:raw.sc||0, sp:raw.sp||0, adv:raw.adv||0,
+        // ★ 기타운영비 세부 전체
         fee:raw.fee||0, mtg:raw.mtg||0, trans:raw.trans||0,
+        edu:raw.edu||0, telecom:raw.telecom||0, supplies:raw.supplies||0,
+        entertain:raw.entertain||0, insure:raw.insure||0, tax:raw.tax||0,
+        car:raw.car||0, travel:raw.travel||0, book:raw.book||0,
+        utility:raw.utility||0, opex,
         loaded_at: new Date().toISOString().slice(0,16),
         filename: file.name,
         year: bmYear,
@@ -24314,7 +24341,65 @@ function loadBMActuals2026(){
   a.opex = sumMon(a.ox_fee,a.ox_mtg,a.ox_trn,a.ox_edu,a.ox_tel,a.ox_sup,
                   a.ox_ent,a.ox_ins,a.ox_tax,a.ox_car,a.ox_trv,a.ox_bk);
 
-  // ── 11) ★ SGA = 세부 합산 → OP = GP - SGA ────────────────
+  // ── 11) ★ BM 실적 오버레이: 실적월은 BM값 직접, 예측월은 Plan×ADJ ──
+  if(typeof BM_ACT !== 'undefined'){
+    for(var m=0; m<nAct; m++){
+      var bm = BM_ACT[String(m)];
+      if(!bm || (bm.year && bm.year!==2026)) continue;
+
+      // 수수료 세부 (정책/관리/기타)
+      if(bm.pol!==undefined)      a.pol[m]  = bm.pol;
+      if(bm.mgmt!==undefined)     a.mgmt[m] = bm.mgmt;
+      if(bm.etc_comm!==undefined) a.etc[m]  = bm.etc_comm;
+
+      // 인건비 (합산 오버레이 + 세부 비례 보정)
+      if(bm.labor){
+        var labPlan = a.labor[m] || 1;
+        var labR = bm.labor / labPlan;
+        a.lb_gen[m]=Math.round(a.lb_gen[m]*labR);
+        a.lb_sal[m]=Math.round(a.lb_sal[m]*labR);
+        a.lb_inc[m]=Math.round(a.lb_inc[m]*labR);
+        a.lb_con[m]=Math.round(a.lb_con[m]*labR);
+        a.lb_rew[m]=Math.round(a.lb_rew[m]*labR);
+        a.lb_ret[m]=Math.round(a.lb_ret[m]*labR);
+        a.lb_wel[m]=Math.round(a.lb_wel[m]*labR);
+      }
+
+      // 감가상각 (유형+무형)
+      if(bm.dep!==undefined) a.dep[m] = bm.dep;
+      // 임차료
+      if(bm.rent!==undefined) a.rent[m] = bm.rent;
+
+      // 마케팅 세부
+      if(bm.sc!==undefined)  a.sc[m]  = bm.sc;
+      if(bm.sp!==undefined)  a.sp[m]  = bm.sp;
+      if(bm.adv!==undefined) a.adv[m] = bm.adv;
+
+      // 기타운영비 세부 (12개 항목)
+      if(bm.fee!==undefined)       a.ox_fee[m] = bm.fee;
+      if(bm.mtg!==undefined)       a.ox_mtg[m] = bm.mtg;
+      if(bm.trans!==undefined)     a.ox_trn[m] = bm.trans;
+      if(bm.edu!==undefined)       a.ox_edu[m] = bm.edu;
+      if(bm.telecom!==undefined)   a.ox_tel[m] = bm.telecom;
+      if(bm.supplies!==undefined)  a.ox_sup[m] = bm.supplies;
+      if(bm.entertain!==undefined) a.ox_ent[m] = bm.entertain;
+      if(bm.insure!==undefined)    a.ox_ins[m] = bm.insure;
+      if(bm.tax!==undefined)       a.ox_tax[m] = bm.tax;
+      if(bm.car!==undefined)       a.ox_car[m] = bm.car;
+      if(bm.travel!==undefined)    a.ox_trv[m] = bm.travel;
+      if(bm.book!==undefined)      a.ox_bk[m]  = bm.book;
+    }
+    // 재합산 (오버레이 후)
+    a.comm  = sumMon(a.pol, a.mgmt, a.etc);
+    a.rev   = sumMon(a.prod, a.comm);
+    a.gp    = a.rev.map(function(v,m){return v-a.cogs[m];});
+    a.labor = sumMon(a.lb_gen,a.lb_sal,a.lb_inc,a.lb_con,a.lb_rew,a.lb_ret,a.lb_wel);
+    a.mkt   = sumMon(a.sc, a.sp, a.adv);
+    a.opex  = sumMon(a.ox_fee,a.ox_mtg,a.ox_trn,a.ox_edu,a.ox_tel,a.ox_sup,
+                     a.ox_ent,a.ox_ins,a.ox_tax,a.ox_car,a.ox_trv,a.ox_bk);
+  }
+
+  // ── 12) ★ SGA = 세부 합산 → OP = GP - SGA ────────────────
   a.sga = sumMon(a.labor, a.mkt, a.rent, a.dep, a.opex);
   a.op  = a.gp.map(function(v,m){return v-a.sga[m];});
 
