@@ -875,6 +875,8 @@ body.edit-mode{background:var(--bg)!important}
   <div class="hdr-r" id="hdr_right">
     <span id="hdr_actual_badge" class="hdr-status-badge hdr-badge-ok" style="display:none">✓ 실적</span>
     <span id="hdr_ce_badge" class="hdr-status-badge hdr-badge-warn" style="display:none" onclick="clearAllCE()" title="클릭하여 모든 셀편집 초기화">✎ <span id="hdr_ce_cnt">0</span>개 ×</span>
+    <button id="btn_undo" class="btn hdr-btn-desktop" onclick="ceUndo()" disabled title="Ctrl+Z: 되돌리기" style="padding:2px 8px;font-size:12px;opacity:.5">↩ Undo</button>
+    <button id="btn_redo" class="btn hdr-btn-desktop" onclick="ceRedo()" disabled title="Ctrl+Y: 다시 실행" style="padding:2px 8px;font-size:12px;opacity:.5">↪ Redo</button>
     <span id="hdr_save_badge" class="hdr-status-badge hdr-badge-ok" style="display:none">저장 <span id="hdr_save_time" style="opacity:.7"></span></span>
     <span id="hdr_edit_ts" class="hdr-status-badge hdr-badge-info" style="display:none"></span>
     <!-- 실적 배지 -->
@@ -2527,6 +2529,8 @@ body.edit-mode{background:var(--bg)!important}
         <button class="pl-tab" onclick="switchVFY('total')">📊 세그먼트 비교</button>
         <button class="pl-tab" onclick="switchVFY('monthly')">📅 월별 분석</button>
         <button class="pl-tab" onclick="switchVFY('sensitivity')">🎯 민감도</button>
+        <button class="pl-tab" onclick="switchVFY('variance')" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);color:#166534;border-color:#86efac">📈 분산분석</button>
+        <button class="pl-tab" onclick="switchVFY('scenario')" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1e40af;border-color:#93c5fd">🔀 시나리오 비교</button>
         <button class="pl-tab" onclick="switchVFY('forecast27')" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);color:#7c3aed;border-color:#c4b5fd">✨ 27E 예측</button>
       </div>
       <button onclick="exportVerifyReport()" style="padding:5px 14px;border:1px solid rgba(16,185,129,.45);border-radius:6px;background:rgba(16,185,129,.12);color:var(--gn2);cursor:pointer;font-size:11px;font-weight:700">📄 보고서</button>
@@ -18024,7 +18028,7 @@ let _vfyTab='fullcheck';
 function switchVFY(tab){
   _vfyTab=tab;
   document.querySelectorAll('#vfy_tabs .pl-tab').forEach((el,i)=>{
-    el.classList.toggle('active',['fullcheck','total','monthly','sensitivity','forecast27'][i]===tab);
+    el.classList.toggle('active',['fullcheck','total','monthly','sensitivity','variance','scenario','forecast27'][i]===tab);
   });
   renderVerify();
 }
@@ -18765,6 +18769,10 @@ function _renderVerifyInner(el){
     body=renderMonthly();
   } else if(tab==='sensitivity'){
     body=`<div class="mg">${metH}</div>`+renderSensitivity();
+  } else if(tab==='variance'){
+    body=renderVarianceAnalysis(pl26, w_s, wl_s);
+  } else if(tab==='scenario'){
+    body=renderScenarioCompare();
   } else if(tab==='forecast27'){
     body=`<div class="mg">${metH}</div>`+renderForecast27();
   } else {
@@ -18900,9 +18908,362 @@ function renderSensitivity(){
       <div style="font-size:10px;color:var(--t3);margin-top:8px">※ 민감도 계산은 단순 선형 가정 기반 추정치입니다. 각 변수 독립 변화 가정 (복합 시나리오 제외). 실제 영향은 채널 믹스, 계절성에 따라 다를 수 있습니다.</div>
     </div>`;
 
+    // ── 2변수 히트맵: CAPA(X) × 대당매출(Y) → 영업이익 변동 ──
+    const hmCapaSteps=[-10,-7,-5,-3,0,3,5,7,10];
+    const hmPuSteps=[-5,-3,-2,-1,0,1,2,3,5];
+    html+=`<div class="card" style="margin-top:14px"><div class="card-t">🔥 2변수 히트맵 — CAPA × 대당매출 → 영업이익</div>
+    <div style="overflow-x:auto;padding:8px"><table style="border-collapse:collapse;font-size:10px;width:100%">
+    <thead><tr><th style="background:#f1f5f9;padding:4px 6px;border:1px solid #e2e8f0;font-size:9px">CAPA↓ \\ 매출→</th>`;
+    hmPuSteps.forEach(p=>html+=`<th style="background:${p===0?'#dbeafe':'#f1f5f9'};padding:4px 6px;border:1px solid #e2e8f0;font-size:9px;text-align:center">${p>=0?'+':''}${p}%</th>`);
+    html+=`</tr></thead><tbody>`;
+    hmCapaSteps.forEach(capaD=>{
+      html+=`<tr><td style="background:${capaD===0?'#dbeafe':'#f1f5f9'};padding:4px 8px;border:1px solid #e2e8f0;font-weight:700;font-size:9px">${capaD>=0?'+':''}${capaD}%</td>`;
+      hmPuSteps.forEach(puD=>{
+        const capaDelta=scenarios[0].calc(capaD);
+        const puDelta=scenarios[1].calc(puD);
+        const totalDelta=capaDelta+puDelta;
+        const newOp=baseOp+totalDelta;
+        const intensity=Math.min(Math.abs(totalDelta)/8000,1);
+        const bg=totalDelta>0?`rgba(16,185,129,${0.08+intensity*0.55})`
+                 :totalDelta<0?`rgba(239,68,68,${0.08+intensity*0.55})`:'#f8fafc';
+        const isBase=capaD===0&&puD===0;
+        html+=`<td style="text-align:center;padding:4px 3px;border:1px solid #e2e8f0;background:${bg};font-family:monospace;font-weight:${isBase?800:400};font-size:${isBase?'11px':'9.5px'};color:${isBase?'#1d4ed8':totalDelta>0?'#064e3b':'#7f1d1d'}">${Math.round(newOp/100).toLocaleString()}억</td>`;
+      });
+      html+=`</tr>`;
+    });
+    html+=`</tbody></table></div>
+    <div style="padding:2px 12px 8px;font-size:9px;color:var(--t3)">파란 셀 = 기준값 기준. 녹색=이익 증가, 적색=이익 감소. 단위: 백만원</div></div>`;
+
+    // ── 토네이도 차트: 변수별 ±영향도 순위 ──
+    const tornadoRange=5; // ±5% (임단협은 ±2%p)
+    const tornadoData=scenarios.map(sc=>{
+      const upD=sc.label.includes('임단협')?sc.calc(2):sc.label.includes('유통')?sc.calc(30):sc.calc(tornadoRange);
+      const dnD=sc.label.includes('임단협')?sc.calc(-2):sc.label.includes('유통')?sc.calc(-30):sc.calc(-tornadoRange);
+      return {label:sc.label, up:upD, dn:dnD, range:Math.abs(upD-dnD)};
+    }).sort((a,b)=>b.range-a.range);
+    const maxRange=Math.max(...tornadoData.map(d=>d.range),1);
+
+    html+=`<div class="card" style="margin-top:14px"><div class="card-t">🌪️ 토네이도 차트 — 변수별 영업이익 영향 순위</div>
+    <div style="padding:12px">`;
+    tornadoData.forEach(d=>{
+      const wUp=Math.abs(d.up)/maxRange*100*2;
+      const wDn=Math.abs(d.dn)/maxRange*100*2;
+      const left=d.dn<0?wDn:0;
+      const right=d.up>0?wUp:0;
+      html+=`<div style="display:grid;grid-template-columns:120px 1fr 100px;align-items:center;margin-bottom:6px">
+        <div style="font-size:11px;font-weight:600;text-align:right;padding-right:10px">${d.label}</div>
+        <div style="position:relative;height:22px;display:flex;align-items:center;justify-content:center">
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:#94a3b8"></div>
+          <div style="position:absolute;right:50%;height:18px;width:${Math.min(left,50)}%;background:rgba(239,68,68,.6);border-radius:3px 0 0 3px"></div>
+          <div style="position:absolute;left:50%;height:18px;width:${Math.min(right,50)}%;background:rgba(16,185,129,.6);border-radius:0 3px 3px 0"></div>
+        </div>
+        <div style="font-size:10px;font-family:monospace;color:var(--t2)">±${Math.round(d.range/200)}억</div>
+      </div>`;
+    });
+    html+=`<div style="font-size:9px;color:var(--t3);margin-top:8px">각 변수 ±5% 변동 기준 (임단협 ±2%p, 유통 ±30억). 막대 길이 = 영업이익 영향 범위</div></div></div>`;
+
     return html;
   }catch(e){
     return `<div style="padding:20px;color:var(--rd2)">❌ 민감도 분석 오류: ${e.message}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// 분산분석 (Variance Analysis) — 계획 vs 실적 비교
+// ══════════════════════════════════════════════════════
+function renderVarianceAnalysis(pl26, w_s, wl_s){
+  try{
+    const s=pl26.tot, t=pl26.tel, d=pl26.dist;
+    const BM=typeof BM_MONTHLY_2025!=='undefined'?BM_MONTHLY_2025:null;
+    const fv=v=>Math.round(v||0).toLocaleString('ko-KR');
+    const fPct=v=>(v>=0?'+':'')+v.toFixed(1)+'%';
+
+    // 2025 실적 vs 2025 계획 (or 시뮬) & 2026 1~2월 실적
+    let html=`<div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:11px">
+      📈 <b>분산분석</b> — 2025년 실적 월별 패턴 + 2026년 1~2월 실적 대비 분석</div>`;
+
+    if(BM){
+      // 2025 월별 영업이익 워터폴
+      const rev25=BM.rev, op25=BM.op;
+      const rev25Tot=rev25.reduce((a,b)=>a+b,0);
+      const op25Tot=op25.reduce((a,b)=>a+b,0);
+
+      html+=`<div class="card" style="margin-bottom:14px"><div class="card-t">📊 2025년 월별 영업이익 패턴 (BM 실적)</div>
+      <div style="padding:10px;overflow-x:auto"><table class="tbl" style="font-size:11px"><thead><tr>
+        <th>항목</th>${MONTHS_KO.map(m=>`<th>${m}</th>`).join('')}<th style="font-weight:800">연간</th>
+      </tr></thead><tbody>`;
+
+      const rows25=[
+        {lb:'매출액', d:BM.rev, cl:''},
+        {lb:'매출원가', d:BM.cogs, cl:''},
+        {lb:'매출총이익', d:BM.gp, cl:'mj'},
+        {lb:'판관비', d:BM.sga, cl:''},
+        {lb:'  인건비', d:BM.labor.map((v,i)=>v+BM.bonus[i]+BM.retire[i]+BM.welfare[i]), cl:'sub'},
+        {lb:'영업이익', d:BM.op, cl:'mj'},
+      ];
+      rows25.forEach(r=>{
+        const tot=r.d.reduce((a,b)=>a+b,0);
+        html+=`<tr class="${r.cl}"><td>${r.lb}</td>${r.d.map(v=>{
+          const c=r.lb==='영업이익'?(v>=0?'color:#059669':'color:#dc2626'):'';
+          return `<td style="text-align:right;${c}">${fv(v)}</td>`;
+        }).join('')}<td style="text-align:right;font-weight:700">${fv(tot)}</td></tr>`;
+      });
+      html+=`</tbody></table></div></div>`;
+
+      // 2026 1~2월 실적 vs 계획 (if available)
+      if(BM.rev_2026 && BM.rev_2026.length>=2){
+        const planRev26=PLAN_2026_FULL?.rev?.mon||[];
+        const planOp26=PLAN_2026_FULL?.op?.mon||[];
+        html+=`<div class="card" style="margin-bottom:14px"><div class="card-t">📈 2026년 1~2월 실적 vs 계획</div>
+        <div style="padding:10px"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">`;
+
+        // KPI cards for Jan/Feb
+        [0,1].forEach(m=>{
+          const aRev=BM.rev_2026[m], pRev=planRev26[m]||0;
+          const aOp=BM.op_2026[m], pOp=planOp26[m]||0;
+          const revVar=pRev?(aRev-pRev)/Math.abs(pRev)*100:0;
+          const opVar=pOp?(aOp-pOp)/Math.abs(pOp)*100:0;
+          html+=`<div style="background:${revVar>=0?'rgba(16,185,129,.06)':'rgba(239,68,68,.06)'};border:1px solid ${revVar>=0?'rgba(16,185,129,.2)':'rgba(239,68,68,.2)'};border-radius:8px;padding:10px">
+            <div style="font-size:10px;color:var(--t3)">${m+1}월 매출</div>
+            <div style="font-size:16px;font-weight:800;color:${revVar>=0?'#059669':'#dc2626'}">${fv(aRev)}</div>
+            <div style="font-size:10px;color:var(--t3)">계획 ${fv(pRev)} (${fPct(revVar)})</div>
+          </div>`;
+          html+=`<div style="background:${opVar>=0?'rgba(16,185,129,.06)':'rgba(239,68,68,.06)'};border:1px solid ${opVar>=0?'rgba(16,185,129,.2)':'rgba(239,68,68,.2)'};border-radius:8px;padding:10px">
+            <div style="font-size:10px;color:var(--t3)">${m+1}월 영업이익</div>
+            <div style="font-size:16px;font-weight:800;color:${opVar>=0?'#059669':'#dc2626'}">${fv(aOp)}</div>
+            <div style="font-size:10px;color:var(--t3)">계획 ${fv(pOp)} (${fPct(opVar)})</div>
+          </div>`;
+        });
+        html+=`</div>`;
+
+        // Detailed table
+        html+=`<table class="tbl" style="font-size:11px"><thead><tr>
+          <th>항목</th><th>1월 실적</th><th>1월 계획</th><th>차이</th><th>달성률</th>
+          <th>2월 실적</th><th>2월 계획</th><th>차이</th><th>달성률</th>
+        </tr></thead><tbody>`;
+        const items26=[
+          {lb:'매출액',a:BM.rev_2026,p:[planRev26[0],planRev26[1]]},
+          {lb:'매출원가',a:BM.cogs_2026||[],p:[(PLAN_2026_FULL?.cogs?.mon||[])[0],(PLAN_2026_FULL?.cogs?.mon||[])[1]]},
+          {lb:'영업이익',a:BM.op_2026,p:[planOp26[0],planOp26[1]]},
+        ];
+        items26.forEach(r=>{
+          html+=`<tr${r.lb==='영업이익'?' class="mj"':''}>`;
+          html+=`<td>${r.lb}</td>`;
+          [0,1].forEach(m=>{
+            const act=r.a[m]||0, pln=r.p[m]||0, diff=act-pln;
+            const ach=pln?(act/pln*100):0;
+            const achCol=ach>=100?'#059669':ach>=95?'#d97706':'#dc2626';
+            html+=`<td style="text-align:right">${fv(act)}</td>`;
+            html+=`<td style="text-align:right;color:var(--t3)">${fv(pln)}</td>`;
+            html+=`<td style="text-align:right;color:${diff>=0?'#059669':'#dc2626'};font-weight:600">${diff>=0?'+':''}${fv(diff)}</td>`;
+            html+=`<td style="text-align:right"><span style="color:${achCol};font-weight:700">${ach.toFixed(1)}%</span></td>`;
+          });
+          html+=`</tr>`;
+        });
+        html+=`</tbody></table></div></div>`;
+
+        // YTD 달성률 프로그레스
+        const ytdRevAct=BM.rev_2026.reduce((a,b)=>a+b,0);
+        const ytdRevPlan=(planRev26[0]||0)+(planRev26[1]||0);
+        const ytdOpAct=BM.op_2026.reduce((a,b)=>a+b,0);
+        const ytdOpPlan=(planOp26[0]||0)+(planOp26[1]||0);
+        const annRevPlan=s.rev_ann||1;
+        const annOpPlan=s.op_ann||1;
+        const revProg=annRevPlan?(ytdRevAct/annRevPlan*100):0;
+        const opProg=annOpPlan?(ytdOpAct/annOpPlan*100):0;
+        const expectedProg=(2/12*100);
+
+        html+=`<div class="card" style="margin-bottom:14px"><div class="card-t">📊 2026 YTD 달성률 (1~2월)</div>
+        <div style="padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:16px">`;
+        [{lb:'매출',act:ytdRevAct,plan:annRevPlan,prog:revProg},{lb:'영업이익',act:ytdOpAct,plan:annOpPlan,prog:opProg}].forEach(item=>{
+          const over=item.prog>=expectedProg;
+          html+=`<div>
+            <div style="font-size:12px;font-weight:700;margin-bottom:6px">${item.lb} YTD</div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+              <span>실적: <b>${fv(item.act)}</b></span>
+              <span style="color:var(--t3)">연간계획: ${fv(item.plan)}</span>
+            </div>
+            <div style="background:#e5e7eb;border-radius:6px;height:20px;position:relative;overflow:hidden">
+              <div style="position:absolute;left:0;top:0;height:100%;width:${Math.min(item.prog,100)}%;background:${over?'linear-gradient(90deg,#059669,#10b981)':'linear-gradient(90deg,#d97706,#f59e0b)'};border-radius:6px;transition:width .3s"></div>
+              <div style="position:absolute;left:${expectedProg}%;top:0;height:100%;width:2px;background:#000;opacity:.3" title="기대 진도 ${expectedProg.toFixed(0)}%"></div>
+              <span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:10px;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4)">${item.prog.toFixed(1)}%</span>
+            </div>
+            <div style="font-size:10px;color:var(--t3);margin-top:4px">기대 진도 ${expectedProg.toFixed(0)}% 대비 ${over?'<b style=color:#059669>초과달성</b>':'<b style=color:#d97706>미달</b>'}</div>
+          </div>`;
+        });
+        html+=`</div></div>`;
+      }
+    } else {
+      html+=`<div class="card" style="padding:20px;color:var(--t3);text-align:center">BM 실적 데이터가 로드되지 않았습니다.</div>`;
+    }
+
+    // 26E 시뮬 항목별 분산 (계획 소스 vs 시뮬)
+    html+=`<div class="card"><div class="card-t">🔍 26E 시뮬레이션 vs 계획 소스 상세 분산</div>
+    <div style="overflow-x:auto;padding:8px"><table class="tbl" style="font-size:11px"><thead><tr>
+      <th>항목</th><th>시뮬 값</th><th>계획 소스</th><th>차이</th><th>차이율</th><th>판정</th>
+    </tr></thead><tbody>`;
+    const vItems=[
+      {lb:'매출액(전사)', sim:s.rev_ann, src:PLAN_2026_FULL?.rev?.ann},
+      {lb:'수수료수입', sim:s.comm_ann, src:PLAN_2026_FULL?.comm?.ann},
+      {lb:'매출원가', sim:s.cogs_ann, src:PLAN_2026_FULL?.cogs?.ann},
+      {lb:'매출총이익', sim:s.gp_ann, src:PLAN_2026_FULL?.gp?.ann},
+      {lb:'판관비', sim:s.sga_ann, src:PLAN_2026_FULL?.sga?.ann},
+      {lb:'인건비', sim:s.labor_ann, src:PLAN_2026_FULL?.labor?.ann},
+      {lb:'영업이익', sim:s.op_ann, src:PLAN_2026_FULL?.op?.ann},
+    ];
+    vItems.forEach(r=>{
+      const diff=(r.sim||0)-(r.src||0);
+      const pct=r.src?Math.abs(diff/r.src*100):0;
+      const ok=pct<=0.5;
+      const warn=pct<=2;
+      html+=`<tr${r.lb.includes('영업이익')?' class="mj"':''}>
+        <td>${r.lb}</td>
+        <td style="text-align:right;font-family:monospace">${fv(r.sim)}</td>
+        <td style="text-align:right;color:var(--t3)">${fv(r.src)}</td>
+        <td style="text-align:right;color:${diff>=0?'#059669':'#dc2626'};font-weight:600">${diff>=0?'+':''}${fv(diff)}</td>
+        <td style="text-align:right">${pct.toFixed(2)}%</td>
+        <td style="text-align:center"><span style="background:${ok?'rgba(16,185,129,.15)':warn?'rgba(245,158,11,.15)':'rgba(239,68,68,.15)'};color:${ok?'#059669':warn?'#d97706':'#dc2626'};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700">${ok?'✓ 일치':warn?'⚠ 주의':'✗ 괴리'}</span></td>
+      </tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+
+    return html;
+  }catch(e){
+    return `<div style="padding:20px;color:var(--rd2)">❌ 분산분석 오류: ${e.message}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// 시나리오 비교 대시보드
+// ══════════════════════════════════════════════════════
+function renderScenarioCompare(){
+  try{
+    const fv=v=>Math.round(v||0).toLocaleString('ko-KR');
+    const all=JSON.parse(localStorage.getItem(SCENARIO_LS)||'{}');
+    const slots=Object.keys(all).filter(k=>all[k]);
+
+    let html=`<div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:11px">
+      🔀 <b>시나리오 비교</b> — 저장된 시나리오끼리 비교하거나, 현재 시뮬값과 비교합니다.
+      <span style="color:var(--t3);margin-left:8px">(최대 ${SCENARIO_SLOTS}개 슬롯 저장 가능)</span></div>`;
+
+    if(slots.length===0){
+      html+=`<div class="card" style="padding:30px;text-align:center;color:var(--t3)">
+        <div style="font-size:24px;margin-bottom:10px">💡</div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:6px">저장된 시나리오가 없습니다</div>
+        <div style="font-size:11px">종합 현황 화면에서 시나리오를 저장하면 여기서 비교할 수 있습니다.</div>
+      </div>`;
+      return html;
+    }
+
+    // Current simulation results
+    const curPL=simPLv2();
+    const curS=curPL.tot;
+
+    // Helper: run simulation with a scenario's CE/MON
+    function simWithScenario(sc){
+      const origCE=JSON.parse(JSON.stringify(_CE||{}));
+      const origMON=JSON.parse(JSON.stringify(MON_MANUAL||{}));
+      const origTD={rev:_TD.rev,op:_TD.op,capa:_TD.capa,active:_TD.active,bridged:_TD.bridged};
+      try{
+        _CE=JSON.parse(JSON.stringify(sc.ce||{}));
+        MON_MANUAL=JSON.parse(JSON.stringify(sc.mon||{}));
+        if(sc.td){_TD.rev=sc.td.rev||0;_TD.op=sc.td.op||0;_TD.capa=sc.td.capa||0;_TD.active=!!sc.td.active;_TD.bridged=!!sc.td.bridged;}
+        const pl=simPLv2();
+        return pl.tot;
+      }finally{
+        _CE=origCE;MON_MANUAL=origMON;
+        _TD.rev=origTD.rev;_TD.op=origTD.op;_TD.capa=origTD.capa;_TD.active=origTD.active;_TD.bridged=origTD.bridged;
+      }
+    }
+
+    // Compute each scenario
+    const results=[{name:'📍 현재 시뮬값', data:curS, ts:Date.now(), isCurrent:true}];
+    slots.forEach(slot=>{
+      const sc=all[slot];
+      try{
+        const data=simWithScenario(sc);
+        results.push({name:sc.name||`시나리오 ${slot}`, data, ts:sc.ts, slot});
+      }catch(e){
+        results.push({name:sc.name||`시나리오 ${slot}`, data:null, ts:sc.ts, slot, error:e.message});
+      }
+    });
+
+    // KPI items to compare
+    const kpis=[
+      {lb:'매출액', k:'rev_ann'},
+      {lb:'수수료수입', k:'comm_ann'},
+      {lb:'매출원가', k:'cogs_ann'},
+      {lb:'매출총이익', k:'gp_ann'},
+      {lb:'판관비', k:'sga_ann'},
+      {lb:'인건비', k:'labor_ann'},
+      {lb:'영업이익', k:'op_ann', isMajor:true},
+    ];
+
+    html+=`<div class="card"><div class="card-t">📊 시나리오별 P&L 비교</div>
+    <div style="overflow-x:auto;padding:8px"><table class="tbl" style="font-size:11px"><thead><tr>
+      <th>항목</th>`;
+    results.forEach(r=>{
+      html+=`<th style="${r.isCurrent?'background:rgba(59,130,246,.08);color:var(--ac2)':''}">${r.name}<br><span style="font-size:9px;color:var(--t3)">${r.ts?new Date(r.ts).toLocaleString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</span></th>`;
+    });
+    if(results.length>=2){
+      html+=`<th style="background:rgba(245,158,11,.08);color:var(--or2)">△ 차이<br><span style="font-size:9px">(현재 vs ${results[1].name})</span></th>`;
+    }
+    html+=`</tr></thead><tbody>`;
+
+    kpis.forEach(kpi=>{
+      html+=`<tr${kpi.isMajor?' class="mj"':''}>`;
+      html+=`<td>${kpi.lb}</td>`;
+      results.forEach(r=>{
+        const v=r.data?r.data[kpi.k]:null;
+        html+=`<td style="text-align:right;font-family:monospace;${r.isCurrent?'font-weight:700;color:var(--ac2)':''}">${v!=null?fv(v):'—'}</td>`;
+      });
+      if(results.length>=2){
+        const v0=results[0].data?results[0].data[kpi.k]:0;
+        const v1=results[1].data?results[1].data[kpi.k]:0;
+        const diff=(v0||0)-(v1||0);
+        html+=`<td style="text-align:right;font-family:monospace;font-weight:700;color:${diff>0?'#059669':diff<0?'#dc2626':'var(--t3)'}">${diff>0?'+':''}${fv(diff)}</td>`;
+      }
+      html+=`</tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+
+    // Waterfall: show OP differences
+    if(results.length>=2){
+      const baseOp=results[1].data?results[1].data.op_ann:0;
+      const curOp=results[0].data?results[0].data.op_ann:0;
+      const drivers=kpis.filter(k=>!k.isMajor).map(kpi=>{
+        const v0=results[0].data?results[0].data[kpi.k]:0;
+        const v1=results[1].data?results[1].data[kpi.k]:0;
+        const isRevType=kpi.k.includes('rev')||kpi.k.includes('comm')||kpi.k.includes('gp');
+        const impact=isRevType?((v0||0)-(v1||0)):-((v0||0)-(v1||0));
+        return {lb:kpi.lb, impact};
+      }).filter(d=>Math.abs(d.impact)>10).sort((a,b)=>Math.abs(b.impact)-Math.abs(a.impact));
+
+      html+=`<div class="card" style="margin-top:14px"><div class="card-t">🌊 영업이익 변동 요인 분해</div>
+      <div style="padding:12px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <div style="font-size:13px;font-weight:800;color:var(--t2)">${results[1].name}: ${fv(baseOp)}</div>
+          <div style="font-size:18px;color:var(--t3)">→</div>
+          <div style="font-size:13px;font-weight:800;color:var(--ac2)">현재: ${fv(curOp)}</div>
+          <div style="padding:3px 10px;border-radius:6px;font-size:12px;font-weight:700;background:${curOp>=baseOp?'rgba(16,185,129,.12)':'rgba(239,68,68,.12)'};color:${curOp>=baseOp?'#059669':'#dc2626'}">${curOp>=baseOp?'+':''}${fv(curOp-baseOp)}</div>
+        </div>`;
+      const maxImpact=Math.max(...drivers.map(d=>Math.abs(d.impact)),1);
+      drivers.forEach(d=>{
+        const w=Math.abs(d.impact)/maxImpact*80;
+        html+=`<div style="display:grid;grid-template-columns:100px 1fr 80px;align-items:center;margin-bottom:4px">
+          <div style="font-size:10px;text-align:right;padding-right:8px">${d.lb}</div>
+          <div style="position:relative;height:18px">
+            <div style="position:absolute;${d.impact>=0?'left:50%':'right:50%'};height:14px;top:2px;width:${w/2}%;background:${d.impact>=0?'rgba(16,185,129,.5)':'rgba(239,68,68,.5)'};border-radius:3px"></div>
+          </div>
+          <div style="font-size:10px;font-family:monospace;font-weight:600;color:${d.impact>=0?'#059669':'#dc2626'}">${d.impact>=0?'+':''}${fv(d.impact)}</div>
+        </div>`;
+      });
+      html+=`</div></div>`;
+    }
+
+    return html;
+  }catch(e){
+    return `<div style="padding:20px;color:var(--rd2)">❌ 시나리오 비교 오류: ${e.message}</div>`;
   }
 }
 
@@ -23115,12 +23476,45 @@ function ceGet(sheet, item, yr, mon, fallback){
   if(v && typeof v==='object' && v.value!==undefined) return v.value;
   return v;
 }
+// ── Undo/Redo 스택 ──
+const _CE_UNDO=[], _CE_REDO=[], _CE_MAX_HIST=50;
+function _ceUndoBtn(){ const u=document.getElementById('btn_undo'),r=document.getElementById('btn_redo'); if(u){u.disabled=!_CE_UNDO.length;u.style.opacity=_CE_UNDO.length?'1':'.5';} if(r){r.disabled=!_CE_REDO.length;r.style.opacity=_CE_REDO.length?'1':'.5';} }
+let _ceSkipHistory=false;
 function ceSet(sheet, item, yr, mon, val){
   if(!_ceIsPlanScope(yr, mon)) return;
   const k=_ceKey(sheet,item,yr,mon);
+  if(!_ceSkipHistory){
+    const prev=_CE[k]===undefined?null:JSON.parse(JSON.stringify(_CE[k]));
+    _CE_UNDO.push({k, prev, next:val===null||val===undefined?null:JSON.parse(JSON.stringify(val))});
+    if(_CE_UNDO.length>_CE_MAX_HIST) _CE_UNDO.shift();
+    _CE_REDO.length=0;
+    _ceUndoBtn();
+  }
   if(val===null||val===undefined){ delete _CE[k]; }
   else { _CE[k]=val; }
   _ceSave();
+}
+function ceUndo(){
+  if(!_CE_UNDO.length) return;
+  const e=_CE_UNDO.pop();
+  _CE_REDO.push(e);
+  _ceSkipHistory=true;
+  if(e.prev===null) delete _CE[e.k]; else _CE[e.k]=e.prev;
+  _ceSave();
+  _ceSkipHistory=false;
+  _ceUndoBtn();
+  renderAllSheets();
+}
+function ceRedo(){
+  if(!_CE_REDO.length) return;
+  const e=_CE_REDO.pop();
+  _CE_UNDO.push(e);
+  _ceSkipHistory=true;
+  if(e.next===null) delete _CE[e.k]; else _CE[e.k]=e.next;
+  _ceSave();
+  _ceSkipHistory=false;
+  _ceUndoBtn();
+  renderAllSheets();
 }
 function ceGetEntry(sheet,item,yr,mon){
   if(!_ceIsPlanScope(yr, mon)) return undefined;
@@ -24685,6 +25079,19 @@ document.addEventListener('click', function(e){
     if((e.ctrlKey&&e.key==='r')||(e.key==='F5')){
       e.preventDefault();
       if(typeof renderAllSheets==='function') renderAllSheets();
+      return;
+    }
+
+    // Ctrl+Z : Undo
+    if(e.ctrlKey && !e.shiftKey && e.key==='z'){
+      e.preventDefault();
+      if(typeof ceUndo==='function') ceUndo();
+      return;
+    }
+    // Ctrl+Y / Ctrl+Shift+Z : Redo
+    if((e.ctrlKey && !e.shiftKey && e.key==='y')||(e.ctrlKey && e.shiftKey && e.key==='z')||(e.ctrlKey && e.shiftKey && e.key==='Z')){
+      e.preventDefault();
+      if(typeof ceRedo==='function') ceRedo();
       return;
     }
 
