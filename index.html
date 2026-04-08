@@ -12484,7 +12484,7 @@ function renderWireless(){
       {label:'CAPA (전사)',       sim:s.capaTotal,      src:670000,                     tol:0.5},
       {label:'상품매출',          sim:s.prodRevTotal,   src:PLAN_TEL_FULL.prod.ann,     tol:1},
       {label:'매출원가',          sim:s.prodCogsTotal,  src:PLAN_TEL_FULL.cogs.ann,     tol:1},
-      {label:'정책수수료(무선)',  sim:s.polFeeTotal,    src:W_POL_ANN26_SRC,            tol:1},
+      {label:'정책수수료(무선)',  sim:s.polFeeTotal,    src:165717,                     tol:1},
       {label:'관리수수료(채널)',  sim:s.mgmtRevAnnual,  src:PLAN_TARGETS.무선관리수수료-W_ETC_DEF.filter(i=>i.isChannel!==true).reduce((a,i)=>a+i.v26,0), tol:1},
       {label:'관리수수료(총계)',  sim:s.totalMgmtRev,   src:PLAN_TARGETS.무선관리수수료, tol:1},
       {label:'판매수수료',        sim:s.salesCommTotal, src:16897,                       tol:1},
@@ -21854,6 +21854,7 @@ function _checkSavedSnapshot(){
   _renderSnapshotList();
 }
 
+let _state = { planningYear:2026, actuals:{}, planSnapshots:{}, midtermTargets:{} };
 const LS_KEY = 'ktms_state_v92';
 function saveState() {
   try {
