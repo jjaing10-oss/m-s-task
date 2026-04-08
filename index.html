@@ -888,9 +888,7 @@ body.edit-mode{background:var(--bg)!important}
     <button class="btn hdr-btn-desktop" onclick="resetAll()">초기화</button>
     <button class="btn hdr-btn-desktop" onclick="saveFullSnapshot()" style="background:#ecfdf5;border-color:#a7f3d0;color:#059669;font-weight:700">저장</button>
     <button class="btn hdr-btn-desktop" onclick="switchMain('settings')">설정</button>
-    <label class="btn hdr-btn-desktop" style="background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.4);color:var(--ac2);font-weight:700;cursor:pointer" title="월별 실적 엑셀 업로드 (전사 손익계산서)">
-      📂 실적 업로드<input type="file" accept=".xlsx,.xls" style="display:none" onchange="handleHeaderActualUpload(this)">
-    </label>
+    <button class="btn hdr-btn-desktop" style="background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.4);color:var(--ac2);font-weight:700;cursor:pointer" title="통합 데이터 업로드" onclick="openUploadModal()">📂 데이터 업로드</button>
     <div style="position:relative;display:inline-block" class="hdr-btn-desktop">
       <button class="btn pri" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'" style="min-width:120px">↓ 엑셀 다운로드 ▾</button>
       <div style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:#fff;border:1px solid var(--bd);border-radius:8px;box-shadow:var(--sh-md);z-index:999;min-width:200px;overflow:hidden">
@@ -2391,30 +2389,9 @@ body.edit-mode{background:var(--bg)!important}
   <!-- 실적 업로드 카드 -->
   <div class="card" style="margin-bottom:16px">
     <div class="card-t">📂 실적 데이터 업로드</div>
-    <div class="help" style="margin-bottom:12px">전사 손익계산서 엑셀 파일 업로드 → SheetJS 파싱 → 해당 연도 실적으로 저장
-    <br>반드시 월별 합 = 연간값 검증 통과 후 저장됩니다.</div>
-
-    <div style="display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin-bottom:12px">
-      <div style="font-size:12px;color:var(--t2)">업로드 연도</div>
-      <select id="st_upload_year" class="if" style="font-size:13px;max-width:120px">
-        <option value="2026">2026년</option>
-        <option value="2027">2027년</option>
-        <option value="2028">2028년</option>
-        <option value="2029">2029년</option>
-        <option value="2030">2030년</option>
-      </select>
-      <div></div>
-
-      <div style="font-size:12px;color:var(--t2)">엑셀 파일</div>
-      <div>
-        <input type="file" id="st_file_input" accept=".xlsx" onchange="previewUploadFile()" style="font-size:11px;color:var(--t2)">
-      </div>
-      <div></div>
-    </div>
-
-    <div id="st_upload_preview" style="display:none;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:6px;padding:10px;margin-bottom:10px;font-size:11px"></div>
-
-    <button class="btn pri" onclick="loadActualFromExcel()" id="st_upload_btn" disabled>📥 실적 데이터 반영</button>
+    <div class="help" style="margin-bottom:12px">모든 데이터 업로드는 헤더의 통합 업로드 모달에서 진행하세요.</div>
+    <button class="btn pri" onclick="openUploadModal()" style="width:100%">📂 데이터 업로드 열기</button>
+    <div id="st_upload_preview" style="display:none"></div>
     <div id="st_upload_status" style="margin-top:8px;font-size:11px"></div>
   </div>
 
@@ -2745,6 +2722,15 @@ const MODEL_LAUNCH_CALENDAR=[
 // ── 전역 월 상수 (중복 30+곳 → 2개 상수로 통합) ──
 const MONTHS_KO=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 const MONTHS_NUM=['1','2','3','4','5','6','7','8','9','10','11','12'];
+
+// ── 전역 토스트 알림 ──
+function _toast(msg){
+  var t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 20px;border-radius:10px;font-size:12.5px;z-index:999999;box-shadow:0 4px 14px rgba(0,0,0,.2);transition:opacity .3s;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis';
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.remove(); },300); },2000);
+}
 
 // ── 시뮬레이션 주요 상수 (매직넘버 추출) ──
 const SIM_CONFIG={
@@ -7285,10 +7271,7 @@ function renderF27Upload(){
         <div style="font-size:11px;color:#6b7280;margin-top:2px">전사손익계산서 시트 포함 Excel → 월별 실적 자동 파싱 · 원→백만원 자동 변환</div>
       </div>
       <div style="display:flex;gap:8px">
-        <label style="padding:7px 14px;background:#059669;color:#fff;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">
-          + 월 업로드
-          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="parseBMActualFile(this.files[0])">
-        </label>
+        <button onclick="openUploadModal()" style="padding:7px 14px;background:#059669;color:#fff;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:inherit">📂 통합 업로드</button>
         ${hasBM?`<button onclick="bmActReset()" style="padding:7px 12px;background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit">초기화</button>`:''}
       </div>
     </div>
@@ -25778,5 +25761,304 @@ document.addEventListener('click', function(e){
 <style>
 @keyframes loadingBar{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
 </style>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- 통합 업로드 모달 -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="uploadModal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);align-items:center;justify-content:center">
+<div style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);max-width:680px;width:94vw;max-height:85vh;overflow:hidden;display:flex;flex-direction:column">
+  <!-- 헤더 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;border-bottom:1px solid #e5e7eb">
+    <div style="font-weight:800;font-size:15px;color:#1e293b">📂 데이터 업로드</div>
+    <button onclick="closeUploadModal()" style="border:none;background:none;font-size:22px;cursor:pointer;color:#94a3b8;padding:0 4px;line-height:1" title="닫기">&times;</button>
+  </div>
+  <!-- 탭 -->
+  <div style="display:flex;border-bottom:1px solid #e5e7eb;padding:0 22px;gap:4px" id="uploadModalTabs">
+    <button class="upl-tab active" data-tab="bm" onclick="_uplSwitchTab('bm')" style="padding:10px 16px;font-size:12.5px;font-weight:700;border:none;background:none;cursor:pointer;color:#3b82f6;border-bottom:2.5px solid #3b82f6;font-family:inherit">📁 BM별 이익계산서</button>
+    <button class="upl-tab" data-tab="dist" onclick="_uplSwitchTab('dist')" style="padding:10px 16px;font-size:12.5px;font-weight:600;border:none;background:none;cursor:pointer;color:#6b7280;border-bottom:2.5px solid transparent;font-family:inherit">🏪 유통플랫폼</button>
+    <button class="upl-tab" data-tab="capa" onclick="_uplSwitchTab('capa')" style="padding:10px 16px;font-size:12.5px;font-weight:600;border:none;background:none;cursor:pointer;color:#6b7280;border-bottom:2.5px solid transparent;font-family:inherit">📊 CAPA</button>
+    <button class="upl-tab" data-tab="actual" onclick="_uplSwitchTab('actual')" style="padding:10px 16px;font-size:12.5px;font-weight:600;border:none;background:none;cursor:pointer;color:#6b7280;border-bottom:2.5px solid transparent;font-family:inherit">📋 전사 실적</button>
+  </div>
+  <!-- 본문 -->
+  <div style="overflow-y:auto;flex:1;padding:18px 22px 22px">
+    <!-- BM별 이익계산서 탭 -->
+    <div id="uplTab_bm">
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:700;font-size:12.5px;color:#065f46;margin-bottom:6px">BM별 이익계산서 월별 업로드</div>
+        <div style="font-size:11px;color:#6b7280;line-height:1.5">전사손익계산서 시트 포함 Excel 파일 업로드 → 월별 실적 자동 파싱<br>파일명에 <b>"2026년 1월"</b> 형식 포함 필요 · 원→백만원 자동 변환</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center">
+        <label style="flex:1;padding:14px;border:2px dashed #10b981;border-radius:10px;text-align:center;cursor:pointer;font-size:12px;color:#059669;font-weight:700;background:#f0fdf4;transition:background .2s" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
+          + BM 월 업로드
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="_uplBMFile(this)">
+        </label>
+        <button onclick="_uplBMReset()" style="padding:10px 14px;background:#fee2e2;border:1px solid #fca5a5;color:#dc2626;border-radius:8px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600">초기화</button>
+      </div>
+      <div id="uplBMGrid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:10px"></div>
+      <div id="uplBMStatus" style="font-size:11px;color:#6b7280"></div>
+    </div>
+
+    <!-- 유통플랫폼 탭 -->
+    <div id="uplTab_dist" style="display:none">
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:700;font-size:12.5px;color:#1e40af;margin-bottom:6px">유통플랫폼 데이터 업로드</div>
+        <div style="font-size:11px;color:#6b7280;line-height:1.5">유통플랫폼 6개 채널(굿바이/시원/코코넛/아슬로그/렌탈/기타) 매출·비용 데이터<br>distribution_input_27E.xlsx 템플릿 형식 권장</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center">
+        <label style="flex:1;padding:14px;border:2px dashed #3b82f6;border-radius:10px;text-align:center;cursor:pointer;font-size:12px;color:#2563eb;font-weight:700;background:#eff6ff;transition:background .2s" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
+          + 유통 데이터 업로드
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="_uplDistFile(this)">
+        </label>
+      </div>
+      <div id="uplDistStatus" style="font-size:11px;color:#6b7280">
+        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px;font-size:11px;color:#6b7280">
+          현재 유통플랫폼 데이터: 하드코딩 기본값 사용 중
+        </div>
+      </div>
+    </div>
+
+    <!-- CAPA 탭 -->
+    <div id="uplTab_capa" style="display:none">
+      <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:700;font-size:12.5px;color:#92400e;margin-bottom:6px">CAPA 데이터 입력</div>
+        <div style="font-size:11px;color:#6b7280;line-height:1.5">무선 CAPA (채널별 개통목표) 직접 입력 또는 엑셀 업로드</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center">
+        <label style="flex:1;padding:14px;border:2px dashed #f59e0b;border-radius:10px;text-align:center;cursor:pointer;font-size:12px;color:#d97706;font-weight:700;background:#fffbeb;transition:background .2s" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fffbeb'">
+          + CAPA 엑셀 업로드
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="_uplCapaFile(this)">
+        </label>
+        <button onclick="switchMain('wireless');closeUploadModal()" style="padding:10px 14px;background:#f0f9ff;border:1px solid #bae6fd;color:#0284c7;border-radius:8px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600">무선탭에서 직접입력 →</button>
+      </div>
+      <div id="uplCapaGrid" style="margin-bottom:10px"></div>
+      <div id="uplCapaStatus" style="font-size:11px;color:#6b7280"></div>
+    </div>
+
+    <!-- 전사 실적 탭 -->
+    <div id="uplTab_actual" style="display:none">
+      <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:700;font-size:12.5px;color:#5b21b6;margin-bottom:6px">전사 손익계산서 실적 업로드</div>
+        <div style="font-size:11px;color:#6b7280;line-height:1.5">경영계획 전사 손익계산서 (월별 열) 형식 업로드<br>설정탭의 실적 업로드와 동일한 기능</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:11px;color:#6b7280;margin-bottom:6px">업로드 연도</div>
+          <select id="uplActYear" style="width:100%;padding:8px;border-radius:8px;border:1px solid #d1d5db;font-size:12px;font-family:inherit;outline:none">
+            <option value="2026" selected>2026년</option>
+            <option value="2027">2027년</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center">
+        <label style="flex:1;padding:14px;border:2px dashed #8b5cf6;border-radius:10px;text-align:center;cursor:pointer;font-size:12px;color:#7c3aed;font-weight:700;background:#f5f3ff;transition:background .2s" onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='#f5f3ff'">
+          + 전사 실적 업로드
+          <input type="file" accept=".xlsx,.xls" style="display:none" onchange="_uplActualFile(this)">
+        </label>
+      </div>
+      <div id="uplActualStatus" style="font-size:11px;color:#6b7280"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// 통합 업로드 모달 JS
+// ═══════════════════════════════════════════════════════════
+function openUploadModal(){
+  var m=document.getElementById('uploadModal');
+  m.style.display='flex';
+  _uplSwitchTab('bm');
+  _uplRenderBMGrid();
+  _uplRenderCapaGrid();
+}
+function closeUploadModal(){
+  document.getElementById('uploadModal').style.display='none';
+}
+// ESC로 닫기 + 백드롭 클릭 닫기
+document.getElementById('uploadModal').addEventListener('click',function(e){
+  if(e.target===this) closeUploadModal();
+});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape' && document.getElementById('uploadModal').style.display==='flex') closeUploadModal();
+});
+
+function _uplSwitchTab(tab){
+  var tabs=['bm','dist','capa','actual'];
+  tabs.forEach(function(t){
+    var btn=document.querySelector('#uploadModalTabs [data-tab="'+t+'"]');
+    var pnl=document.getElementById('uplTab_'+t);
+    if(t===tab){
+      btn.style.color='#3b82f6'; btn.style.borderBottomColor='#3b82f6'; btn.style.fontWeight='700';
+      pnl.style.display='';
+    } else {
+      btn.style.color='#6b7280'; btn.style.borderBottomColor='transparent'; btn.style.fontWeight='600';
+      pnl.style.display='none';
+    }
+  });
+  if(tab==='bm') _uplRenderBMGrid();
+  if(tab==='capa') _uplRenderCapaGrid();
+}
+
+// ── BM별 업로드 ──
+function _uplBMFile(inp){
+  if(!inp.files[0]) return;
+  parseBMActualFile(inp.files[0]);
+  inp.value='';
+  setTimeout(_uplRenderBMGrid, 500);
+}
+function _uplBMReset(){
+  if(!confirm('BM 실적 데이터를 전부 초기화하시겠습니까?')) return;
+  if(typeof bmActReset==='function') bmActReset();
+  _uplRenderBMGrid();
+}
+function _uplRenderBMGrid(){
+  var el=document.getElementById('uplBMGrid'); if(!el) return;
+  var MONTHS=MONTHS_KO;
+  var bmMonths=(typeof BM_LOADED_MONTHS!=='undefined')?BM_LOADED_MONTHS.slice().sort(function(a,b){return a-b;}):[];
+  var html=MONTHS.map(function(mn,i){
+    var bm=(typeof BM_ACT!=='undefined')?BM_ACT[String(i)]:null;
+    var loaded=bmMonths.indexOf(i)>=0 && bm;
+    return '<div style="border:1px solid '+(loaded?'#10b981':'#e5e7eb')+';border-radius:8px;padding:8px 6px;text-align:center;background:'+(loaded?'#f0fdf4':'#fafafa')+';min-height:60px">'+
+      '<div style="font-size:11px;font-weight:700;color:'+(loaded?'#059669':'#9ca3af')+';margin-bottom:4px">'+mn+'</div>'+
+      (loaded?
+        '<div style="font-size:9.5px;color:#064e3b;line-height:1.5">GP <b>'+Math.round(bm.gp/100)+'억</b><br>OP <b style="color:'+(bm.op>=0?'#059669':'#dc2626')+'">'+(bm.op>=0?'+':'')+Math.round(bm.op/100)+'억</b></div>'
+      :
+        '<div style="font-size:10px;color:#d1d5db;margin-top:4px">미업로드</div>'
+      )+'</div>';
+  }).join('');
+  el.innerHTML=html;
+  // status
+  var st=document.getElementById('uplBMStatus');
+  if(st){
+    var cnt=bmMonths.length;
+    st.innerHTML=cnt>0?'<span style="color:#059669;font-weight:600">✅ '+cnt+'개월 실적 업로드 완료</span> — 나머지 '+(12-cnt)+'개월 트렌드 시뮬 적용':'<span style="color:#9ca3af">아직 업로드된 BM 실적이 없습니다</span>';
+  }
+}
+
+// ── 유통플랫폼 업로드 ──
+function _uplDistFile(inp){
+  if(!inp.files[0]) return;
+  if(typeof XLSX==='undefined'){ alert('XLSX 라이브러리가 로드되지 않았습니다.'); return; }
+  var file=inp.files[0];
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      // 요약 시트에서 채널별 연간 합계 파싱
+      var chNames={goodbuy:'굿바이',siyon:'시원',coconut:'코코넛',aslog:'아슬로그',rental:'렌탈',otherbiz:'기타사업'};
+      var parsed=0;
+      DP_SECTION_KEYS.forEach(function(chKey){
+        var shName=wb.SheetNames.find(function(n){ return n.includes(chNames[chKey]||chKey); });
+        if(!shName) return;
+        var ws=wb.Sheets[shName];
+        var data=XLSX.utils.sheet_to_json(ws,{header:1,defval:0,raw:true});
+        // 채널 시트 파싱: row=항목, col 1~12=월별 (백만원)
+        var conf=DP_SECTION_26[chKey];
+        if(!conf||!conf.mon) return;
+        var itemMap={'상품매출':'prod','광고수입':'ad','시연폰':'demo','정책수수료':'pol',
+          '기타매출':'etc','상품매출원가':'prod_cogs','상품판매원가':'sale_cogs',
+          '인건비':'labor','임차관리비':'rent','수수료비용':'fee','운반비':'transport',
+          '광고선전비':'adpromo','판매촉진비':'promo','기타운영비':'opex','소모품비':'supplies','감가상각비':'dep'};
+        data.forEach(function(row){
+          if(!row||!row[0]) return;
+          var lbl=String(row[0]).replace(/\s+/g,'').trim();
+          for(var label in itemMap){
+            if(lbl===label){
+              var key=itemMap[label];
+              if(conf.mon[key]){
+                for(var m=0;m<12;m++){
+                  var v=typeof row[m+1]==='number'?row[m+1]:parseFloat(String(row[m+1]||'0').replace(/,/g,''));
+                  if(!isNaN(v)) conf.mon[key][m]=Math.round(v);
+                }
+                parsed++;
+              }
+              break;
+            }
+          }
+        });
+      });
+      if(parsed>0){
+        _toast('✅ 유통플랫폼 데이터 업로드 — '+parsed+'개 항목 반영');
+        if(typeof renderAllSheets==='function') renderAllSheets();
+        var st=document.getElementById('uplDistStatus');
+        if(st) st.innerHTML='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px;font-size:11px;color:#059669;font-weight:600">✅ '+parsed+'개 항목 업로드 완료</div>';
+      } else {
+        alert('유통플랫폼 데이터를 찾을 수 없습니다. 시트명에 채널명(굿바이/시원/코코넛 등)이 포함되어야 합니다.');
+      }
+    }catch(err){ alert('파싱 오류: '+err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+  inp.value='';
+}
+
+// ── CAPA 업로드 ──
+function _uplCapaFile(inp){
+  if(!inp.files[0]) return;
+  if(typeof XLSX==='undefined'){ alert('XLSX 라이브러리가 로드되지 않았습니다.'); return; }
+  var file=inp.files[0];
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var data=XLSX.utils.sheet_to_json(ws,{header:1,defval:0,raw:true});
+      // 채널명 매핑
+      var chMap={'도매':0,'소매':1,'소상공인':2,'디지털':3,'기업':4,'Biz':5,'유선':6};
+      var found=0;
+      data.forEach(function(row){
+        if(!row||!row[0]) return;
+        var lbl=String(row[0]).replace(/\s+/g,'').trim();
+        for(var ch in chMap){
+          if(lbl.includes(ch)){
+            var v=typeof row[1]==='number'?row[1]:parseInt(String(row[1]||'0').replace(/,/g,''));
+            if(!isNaN(v)&&v>0){
+              W_CAPA_26[chMap[ch]]=v;
+              found++;
+            }
+            break;
+          }
+        }
+      });
+      if(found>0){
+        if(typeof runW==='function') runW();
+        _toast('✅ CAPA 업로드 — '+found+'개 채널 반영');
+        _uplRenderCapaGrid();
+      } else {
+        alert('CAPA 데이터를 찾을 수 없습니다. 채널명(도매/소매/소상공인/디지털/기업/Biz/유선)이 포함되어야 합니다.');
+      }
+    }catch(err){ alert('파싱 오류: '+err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+  inp.value='';
+}
+function _uplRenderCapaGrid(){
+  var el=document.getElementById('uplCapaGrid'); if(!el) return;
+  var chs=(typeof W_CH!=='undefined')?W_CH:['도매','소매','소상공인','디지털','기업','Biz','유선'];
+  var vals=(typeof W_CAPA_26!=='undefined')?W_CAPA_26:[];
+  var tot=0;
+  var html='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">';
+  chs.forEach(function(ch,i){
+    var v=vals[i]||0; tot+=v;
+    html+='<div style="border:1px solid #e5e7eb;border-radius:8px;padding:8px;text-align:center;background:#fffbeb">'+
+      '<div style="font-size:10px;color:#92400e;font-weight:700;margin-bottom:2px">'+ch+'</div>'+
+      '<div style="font-size:12px;font-weight:800;color:#1e293b">'+v.toLocaleString()+'</div></div>';
+  });
+  html+='</div>';
+  html+='<div style="margin-top:8px;text-align:right;font-size:12px;color:#1e293b;font-weight:700">전사 합계: <span style="color:#d97706">'+tot.toLocaleString()+'건</span></div>';
+  el.innerHTML=html;
+}
+
+// ── 전사 실적 업로드 ──
+function _uplActualFile(inp){
+  if(!inp.files[0]) return;
+  // 기존 handleHeaderActualUpload 로직 재활용
+  handleHeaderActualUpload(inp);
+  setTimeout(function(){
+    var st=document.getElementById('uplActualStatus');
+    if(st) st.innerHTML='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px;font-size:11px;color:#059669;font-weight:600">✅ 전사 실적 업로드 처리 완료</div>';
+  },1000);
+}
+</script>
 </body>
 </html>
