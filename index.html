@@ -1521,7 +1521,7 @@ body.edit-mode{background:var(--bg)!important}
   <div class="dv"></div>
   <div class="sec">🎁 특별격려금 (별도지급)</div>
   <div class="ig" style="margin-top:8px">
-    <div class="ig-l">금액 <span class="h">25년=2,897 / 26E계획=3,000</span></div>
+    <div class="ig-l">금액 <span class="h">25년=2,897 / 26E목표=3,000</span></div>
     <div class="ir"><input type="text" id="lb_bonus" class="if mono" value="3,000" onchange="runLB()"><span class="iu">백만</span></div>
   </div>
   <div class="ig">
@@ -2532,7 +2532,7 @@ body.edit-mode{background:var(--bg)!important}
   <div class="mtrack-hdr">
     <div>
       <div class="mtrack-title">📊 월별 실적 추적 스프레드시트</div>
-      <div class="mtrack-subtitle"><span id="mtrack_year_label">2026년 계획</span> 기준 | 대당 매출/원가, 원가율 등 주요 KPI를 월별로 직접 입력·수정 | 자동저장</div>
+      <div class="mtrack-subtitle"><span id="mtrack_year_label">2026년 목표(KT제출)</span> 기준 | 대당 매출/원가, 원가율 등 주요 KPI를 월별로 직접 입력·수정 | 자동저장</div>
     </div>
     <div class="mtrack-actions" style="gap:8px">
       <div style="display:flex;gap:4px;align-items:center;background:#f1f5f9;border-radius:8px;padding:3px">
@@ -3651,7 +3651,7 @@ function _wirelessFallback2026E(year){
         </table>
         <div style="margin-top:14px;padding:10px;background:var(--s2);border-radius:7px;font-size:11px;color:var(--t3);line-height:1.6">
           📌 실제 ${year}년 무선 시뮬레이션 결과를 보려면<br>
-          상단 연도 탭에서 <b>2026E (계획)</b>를 선택하세요.
+          상단 연도 탭에서 <b>2026E (목표)</b>를 선택하세요.
         </div>
       </div>
     </div>`;
@@ -3811,7 +3811,7 @@ function renderWirelessHistLike26(year){
 const APP_VERSION='v92';
 const DEFAULT_YEAR_META=[
   {id:'2027E', year:2027, type:'forecast', label:'2027 예측', order:2027.1},
-  {id:'2026E', year:2026, type:'plan', label:'2026 계획', order:2026.1},
+  {id:'2026E', year:2026, type:'plan', label:'2026 목표(KT제출)', order:2026.1},
   {id:'2025', year:2025, type:'actual', label:'2025 실적', order:2025},
   {id:'2024', year:2024, type:'actual', label:'2024 실적', order:2024},
   {id:'2023', year:2023, type:'actual', label:'2023 실적', order:2023},
@@ -3825,7 +3825,7 @@ function normalizeYearMeta(entry){
   const year = +entry.year || 0;
   const type = entry.type || (String(entry.id).endsWith('E') ? (year>2026?'forecast':'plan') : 'actual');
   const id = entry.id || (type==='plan' ? year+'E' : String(year));
-  const label = entry.label || (type==='plan' ? `${year} 계획` : type==='forecast' ? `${year} 예측` : `${year} 실적`);
+  const label = entry.label || (type==='plan' ? `${year} 목표(KT제출)` : type==='forecast' ? `${year} 예측` : `${year} 실적`);
   const order = entry.order || (type==='plan' ? year+0.1 : year);
   return {id, year, type, label, order};
 }
@@ -3982,13 +3982,13 @@ function scanWorkbookYears(wb){
           id: hit.year===2026 && isPlan ? '2026E' : id,
           year: hit.year,
           type: isForecast ? 'forecast' : (hit.year===2026 && isPlan ? 'plan' : hit.type),
-          label: isForecast ? `${hit.year} 예측` : isPlan ? `${hit.year} 계획` : `${hit.year} 실적`,
+          label: isForecast ? `${hit.year} 예측` : isPlan ? `${hit.year} 목표(KT제출)` : `${hit.year} 실적`,
           order: isPlan ? hit.year+0.1 : hit.year
         });
       });
     }
   });
-  if(found['2026E']) found['2026E'].label='2026 계획';
+  if(found['2026E']) found['2026E'].label='2026 목표(KT제출)';
   return Object.values(found).sort((a,b)=>b.order-a.order);
 }
 function extractPLRowsFromWorkbook(wb){
@@ -7561,12 +7561,12 @@ function renderF27Upload(){
         <div style="background:#fff;border-radius:8px;padding:10px;text-align:center">
           <div style="font-size:10px;color:#6b7280">매출총이익(GP)</div>
           <div style="font-size:16px;font-weight:800;color:#059669">${Math.round(ytdGP/100).toLocaleString()}억</div>
-          <div style="font-size:10px;color:${gpDiff>=0?'#059669':'#dc2626'}">${gpDiff>=0?'▲':'▼'}${Math.abs(Math.round(gpDiff/100))}억 vs계획</div>
+          <div style="font-size:10px;color:${gpDiff>=0?'#059669':'#dc2626'}">${gpDiff>=0?'▲':'▼'}${Math.abs(Math.round(gpDiff/100))}억 vs목표</div>
         </div>
         <div style="background:#fff;border-radius:8px;padding:10px;text-align:center">
           <div style="font-size:10px;color:#6b7280">영업이익(OP)</div>
           <div style="font-size:16px;font-weight:800;color:${ytdOP>=0?'#059669':'#dc2626'}">${Math.round(ytdOP/100).toLocaleString()}억</div>
-          <div style="font-size:10px;color:${opDiff>=0?'#059669':'#dc2626'}">${opDiff>=0?'▲':'▼'}${Math.abs(Math.round(opDiff/100))}억 vs계획</div>
+          <div style="font-size:10px;color:${opDiff>=0?'#059669':'#dc2626'}">${opDiff>=0?'▲':'▼'}${Math.abs(Math.round(opDiff/100))}억 vs목표</div>
         </div>
         <div style="background:#fff;border-radius:8px;padding:10px;text-align:center">
           <div style="font-size:10px;color:#6b7280">인건비</div>
@@ -7926,8 +7926,8 @@ function renderF27Merged26(){
         +'<div style="font-size:10px;color:#9ca3af;margin-bottom:4px">'+c.label+'</div>'
         +'<div style="font-size:16px;font-weight:800;color:#111827">'+(c.nofmt?c.val:Math.round(c.val).toLocaleString('ko-KR'))
         +(c.unitLabel?'<span style="font-size:10px;color:#6b7280;font-weight:400"> '+c.unitLabel+'</span>':(c.nofmt?'':'<span style="font-size:11px;color:#6b7280;font-weight:400"> 백만원</span>'))+'</div>'
-        +(!c.nofmt&&!c.str?'<div style="font-size:11px;color:'+color+';margin-top:2px">'+(yoy>=0?'+':'')+yoy.toFixed(1)+'% vs계획</div>':'')
-        +(c.pct?'<div style="font-size:11px;color:'+color+';margin-top:2px">'+(c.v-c.r>=0?'+':'')+(c.v-c.r).toFixed(2)+'pp vs계획</div>':'')
+        +(!c.nofmt&&!c.str?'<div style="font-size:11px;color:'+color+';margin-top:2px">'+(yoy>=0?'+':'')+yoy.toFixed(1)+'% vs목표</div>':'')
+        +(c.pct?'<div style="font-size:11px;color:'+color+';margin-top:2px">'+(c.v-c.r>=0?'+':'')+(c.v-c.r).toFixed(2)+'pp vs목표</div>':'')
         +(c.unitLabel&&c.ref?'<div style="font-size:10px;color:#9ca3af;margin-top:2px">계획 '+Math.round(c.ref).toLocaleString('ko-KR')+'</div>':'')
         +'</div>';
     }).join('')}
@@ -8115,7 +8115,7 @@ function f26RenderWireDrivers(){
   +'<div class="card" style="padding:14px">'
   +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">💰 대당 단가 현황 <span style="font-size:10px;color:var(--t3)">시뮬값 = merged26÷CAPA</span></div>'
   +'<table class="tbl" style="font-size:11px;width:100%"><thead><tr>'
-  +'<th style="'+th+';text-align:left">항목</th><th style="'+th+'">25년</th><th style="'+th+'">26E계획</th><th style="'+th+';color:#1d4ed8">26E시뮬</th><th style="'+th+'">시뮬vs계획</th></tr></thead>'
+  +'<th style="'+th+';text-align:left">항목</th><th style="'+th+'">25년</th><th style="'+th+'">26E목표</th><th style="'+th+';color:#1d4ed8">26E시뮬</th><th style="'+th+'">시뮬vs목표</th></tr></thead>'
   +'<tbody>'+unitRows+'</tbody></table></div></div>'
   +'<div class="card" style="padding:14px">'
   +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">🏷 관리수수료 드라이버 (Active×단가×12)</div>'
@@ -8143,13 +8143,13 @@ function f26RenderLaborInfra(){
   var rent26 = _mAnn('rent'), dep26 = _mAnn('dep');
   var dist_dep26 = _mAnn('dist_dep');
 
-  // ★ v96: 계획 원본값 (PLAN_LABOR_FULL)
+  // ★ v96: 목표 원본값 (PLAN_LABOR_FULL)
   var LP = PLAN_LABOR_FULL;
   var lbPlan = PLAN_2026_FULL.labor.ann;
 
   var LB25 = {gen:17537,sal:75411,ret:10264,wel:33976,rew:699,inc:10907,con:3050,total:140784};
 
-  // ★ v96: 6열 (항목/25년/26E계획/26E시뮬/시뮬vs계획/시뮬사유)
+  // ★ v96: 6열 (항목/25년/26E목표/26E시뮬/시뮬vs목표/시뮬사유)
   var lb_rows = [
     {l:'일반직 급여(백만)',     v25:LB25.gen, plan:LP.gen_salary.ann, sim:lb_gen26},
     {l:'영업직급여(백만)',      v25:LB25.sal, plan:LP.sal_salary.ann, sim:lb_sal26},
@@ -8196,7 +8196,7 @@ function f26RenderLaborInfra(){
   return '<div style="max-width:1400px;margin:0 auto">'
   +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">'+tabBtns+'</div>'
   +'<div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:11px">'
-  +'📌 <b>P&L 연동 (시뮬↔계획)</b> — 인건비: <b>'+fmt(lb26)+'</b> vs 계획 '+fmt(lbPlan)+' (<span style="color:'+(labDiff>=0?'#d97706':'#059669')+'">'+(labDiff>=0?'+':'')+fmt(labDiff)+'</span>) '
+  +'📌 <b>P&L 연동 (시뮬↔목표)</b> — 인건비: <b>'+fmt(lb26)+'</b> vs 목표 '+fmt(lbPlan)+' (<span style="color:'+(labDiff>=0?'#d97706':'#059669')+'">'+(labDiff>=0?'+':'')+fmt(labDiff)+'</span>) '
   +'/ 임차: <b>'+fmt(rent26)+'</b> vs '+fmt(rentPlan)+' (<span style="color:'+(rentDiff>=0?'#d97706':'#059669')+'">'+(rentDiff>=0?'+':'')+fmt(rentDiff)+'</span>) '
   +'/ 감가: <b>'+fmt(dep26)+'</b> vs '+fmt(depPlan)+' (<span style="color:'+(depDiff>=0?'#d97706':'#059669')+'">'+(depDiff>=0?'+':'')+fmt(depDiff)+'</span>)'
   +'<span style="color:var(--t3);margin-left:8px">BM실적 반영시 자동 갱신</span></div>'
@@ -8204,7 +8204,7 @@ function f26RenderLaborInfra(){
   +'<div class="card" style="padding:14px">'
   +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">👥 인건비 현황 <span style="font-size:10px;color:var(--t3)">인원 '+fmt(hc_total)+'명 (일반직 '+gen_hc+' / 영업직 '+fmt(sal_hc)+')</span></div>'
   +'<table class="tbl" style="font-size:11px;width:100%">'
-  +'<thead><tr><th style="'+th+';text-align:left;min-width:150px">항목</th><th style="'+th+'">25년</th><th style="'+th+'">26E계획</th><th style="'+th+';background:rgba(37,99,235,.08);color:#1d4ed8">26E시뮬</th><th style="'+th+'">시뮬vs계획</th></tr></thead>'
+  +'<thead><tr><th style="'+th+';text-align:left;min-width:150px">항목</th><th style="'+th+'">25년</th><th style="'+th+'">26E목표</th><th style="'+th+';background:rgba(37,99,235,.08);color:#1d4ed8">26E시뮬</th><th style="'+th+'">시뮬vs목표</th></tr></thead>'
   +'<tbody>'+lb_rows.map(mkRow).join('')
   +'<tr style="background:rgba(59,130,246,.04)"><td style="'+td+';text-align:left;color:var(--ac2)">└ 일반직 인당(백만/년)</td>'
   +'<td style="'+td+';color:var(--t3)">89.9</td>'
@@ -8226,7 +8226,7 @@ function f26RenderLaborInfra(){
   +'<div class="card" style="padding:14px">'
   +'<div style="font-size:12px;font-weight:700;margin-bottom:8px">🏪 인프라·임차 현황</div>'
   +'<table class="tbl" style="font-size:11px;width:100%">'
-  +'<thead><tr><th style="'+th+';text-align:left">항목</th><th style="'+th+'">25년</th><th style="'+th+'">26E계획</th><th style="'+th+';background:rgba(37,99,235,.08);color:#1d4ed8">26E시뮬</th><th style="'+th+'">시뮬vs계획</th></tr></thead>'
+  +'<thead><tr><th style="'+th+';text-align:left">항목</th><th style="'+th+'">25년</th><th style="'+th+'">26E목표</th><th style="'+th+';background:rgba(37,99,235,.08);color:#1d4ed8">26E시뮬</th><th style="'+th+'">시뮬vs목표</th></tr></thead>'
   +'<tbody>'
   +[['소매매장수(점)', IF25.stores, IF26.stores, IF26.stores],
     ['매장임차료 단가(백만/년)', IF25.rent_per, IF26.rent_per, IF26.rent_per],
@@ -8251,7 +8251,7 @@ function f26RenderLaborInfra(){
   +'<div class="card" style="padding:14px">'
   +'<div style="font-size:12px;font-weight:700;margin-bottom:8px">📉 감가상각 현황</div>'
   +'<table class="tbl" style="font-size:11px;width:100%">'
-  +'<thead><tr><th style="'+th+';text-align:left">항목</th><th style="'+th+'">25년</th><th style="'+th+'">26E계획</th><th style="'+th+';background:rgba(37,99,235,.08)">26E시뮬</th><th style="'+th+'">시뮬vs계획</th></tr></thead>'
+  +'<thead><tr><th style="'+th+';text-align:left">항목</th><th style="'+th+'">25년</th><th style="'+th+'">26E목표</th><th style="'+th+';background:rgba(37,99,235,.08)">26E시뮬</th><th style="'+th+'">시뮬vs목표</th></tr></thead>'
   +'<tbody>'
   +(function(){
     var distDepPlan = PLAN_DIST_FULL.dep.ann;
@@ -8348,8 +8348,8 @@ function f26RenderEtcFee(){
   return '<div style="max-width:1400px;margin:0 auto">'
   +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">'+tabBtns+'</div>'
   +'<div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:11px">'
-  +'📌 <b>P&L 연동 (시뮬↔계획)</b> — 기타수수료: <b>'+fmt(etc26)+'</b> vs 계획 '+fmt(etcPlan)+' (<span style="color:'+(etcDiff>=0?'#d97706':'#059669')+'">'+(etcDiff>=0?'+':'')+fmt(etcDiff)+'</span>) '
-  +'/ 기타운영비: <b>'+fmt(opex26)+'</b> vs 계획 '+fmt(opexPlan)+' (<span style="color:'+(opexDiff>=0?'#d97706':'#059669')+'">'+(opexDiff>=0?'+':'')+fmt(opexDiff)+'</span>)'
+  +'📌 <b>P&L 연동 (시뮬↔목표)</b> — 기타수수료: <b>'+fmt(etc26)+'</b> vs 목표 '+fmt(etcPlan)+' (<span style="color:'+(etcDiff>=0?'#d97706':'#059669')+'">'+(etcDiff>=0?'+':'')+fmt(etcDiff)+'</span>) '
+  +'/ 기타운영비: <b>'+fmt(opex26)+'</b> vs 목표 '+fmt(opexPlan)+' (<span style="color:'+(opexDiff>=0?'#d97706':'#059669')+'">'+(opexDiff>=0?'+':'')+fmt(opexDiff)+'</span>)'
   +'<span style="color:var(--t3);margin-left:8px">BM실적 반영시 자동 갱신</span></div>'
   +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
 
@@ -8358,7 +8358,7 @@ function f26RenderEtcFee(){
   +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">📦 기타수수료 항목별 <span style="font-size:10px;color:var(--t3)">수수료수입 내 세부 (계획 기준)</span></div>'
   +'<div style="overflow-x:auto"><table class="tbl" style="font-size:11px;width:100%">'
   +'<thead><tr><th style="'+th+';text-align:left;min-width:130px">항목</th>'
-  +'<th style="'+th+'">25년</th><th style="'+th+'">26E계획</th>'
+  +'<th style="'+th+'">25년</th><th style="'+th+'">26E목표</th>'
   +'<th style="'+th+'">증감(YoY)</th><th style="'+th+';text-align:left">비고</th></tr></thead>'
   +'<tbody>'+rows
   +'<tr style="background:#f8fafc;font-weight:700"><td style="'+td+';text-align:left">항목합계(계획)</td>'
@@ -8376,8 +8376,8 @@ function f26RenderEtcFee(){
   +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">🔧 기타운영비 항목별 <span style="font-size:10px;color:var(--t3)">판관비 내 세부 (시뮬 연동)</span></div>'
   +'<div style="overflow-x:auto"><table class="tbl" style="font-size:11px;width:100%">'
   +'<thead><tr><th style="'+th+';text-align:left;min-width:100px">항목</th>'
-  +'<th style="'+th+'">26E계획</th><th style="'+th+';background:rgba(37,99,235,.08);color:#1d4ed8">26E시뮬</th>'
-  +'<th style="'+th+'">시뮬vs계획</th></tr></thead>'
+  +'<th style="'+th+'">26E목표</th><th style="'+th+';background:rgba(37,99,235,.08);color:#1d4ed8">26E시뮬</th>'
+  +'<th style="'+th+'">시뮬vs목표</th></tr></thead>'
   +'<tbody>'+oxRows
   +'<tr style="background:rgba(59,130,246,.04);font-weight:700"><td style="'+td+';text-align:left;color:var(--ac2)">★ 기타운영비 합계</td>'
   +'<td style="'+td+';color:var(--t3)">'+fmt(opexPlan)+'</td>'
@@ -8499,11 +8499,11 @@ function f26RenderNarrative(){
   +'</div>'
 
   +'<div class="card" style="padding:14px">'
-  +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">📈 25년 실적 대비 26E 계획 비교</div>'
+  +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">📈 25년 실적 대비 26E 목표 비교</div>'
   +'<div style="overflow-x:auto"><table class="tbl" style="font-size:11px">'
   +'<thead><tr><th style="text-align:left;min-width:130px">항목</th>'
   +'<th>25년</th><th style="color:#1d4ed8;background:rgba(37,99,235,.06)">26E 시뮬</th>'
-  +'<th>계획 원본</th><th>시뮬 vs 계획</th></tr></thead><tbody>'
+  +'<th>목표 원본</th><th>시뮬 vs 목표</th></tr></thead><tbody>'
   +gapItems.map(function(item){
     var diff26=item.v26-item.plan;
     var isRev=item.l==='매출'||item.l.includes('이익');
@@ -8516,9 +8516,9 @@ function f26RenderNarrative(){
   }).join('')
   +'</tbody></table></div>'
   +'<div style="margin-top:10px;font-size:11px;color:var(--t2);background:var(--bg2);padding:8px 10px;border-radius:6px">'
-  +'📌 <b>시뮬 대비 계획 요약:</b> '
-  +(rev26>planRev?'매출은 BM실적 반영으로 계획 상회':'매출은 계획 수준 또는 하회')+', '
-  +(op26>planOp?'영업이익 계획 상회 — 실적 호조':'영업이익 계획 대비 검토 필요')+'.'
+  +'📌 <b>시뮬 대비 목표 요약:</b> '
+  +(rev26>planRev?'매출은 BM실적 반영으로 목표 상회':'매출은 목표 수준 또는 하회')+', '
+  +(op26>planOp?'영업이익 목표 상회 — 실적 호조':'영업이익 목표 대비 검토 필요')+'.'
   +'</div></div></div>';
 }
 
@@ -8576,11 +8576,11 @@ function f26RenderDistPlatform(){
   var html = '<div style="max-width:1400px;margin:0 auto">'
   +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">'+tabBtns+'</div>';
 
-  // ── 상단 배너: 전체 유통 시뮬 vs 계획 ──
+  // ── 상단 배너: 전체 유통 시뮬 vs 목표 ──
   var revDiff = distRev - planDistRev;
   var opDiff = distOp - planDistOp;
   html += '<div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:11px">'
-  +'📌 <b>유통플랫폼 전체 (시뮬↔계획)</b> — 매출: <b>'+fmt(distRev)+'</b> vs '+fmt(planDistRev)+' (<span style="color:'+(revDiff>=0?'#059669':'#dc2626')+'">'+(revDiff>=0?'+':'')+fmt(Math.round(revDiff))+'</span>) '
+  +'📌 <b>유통플랫폼 전체 (시뮬↔목표)</b> — 매출: <b>'+fmt(distRev)+'</b> vs '+fmt(planDistRev)+' (<span style="color:'+(revDiff>=0?'#059669':'#dc2626')+'">'+(revDiff>=0?'+':'')+fmt(Math.round(revDiff))+'</span>) '
   +'/ 영업이익: <b>'+fmt(distOp)+'</b> vs '+fmt(planDistOp)+' (<span style="color:'+(opDiff>=0?'#059669':'#dc2626')+'">'+(opDiff>=0?'+':'')+fmt(Math.round(opDiff))+'</span>) '
   +'/ OPM: <b>'+distOpm.toFixed(1)+'%</b> vs '+planDistOpm.toFixed(1)+'%'
   +'<span style="color:var(--t3);margin-left:8px">BM실적·CE편집 반영</span></div>';
@@ -8604,14 +8604,14 @@ function f26RenderDistPlatform(){
         +'<div style="font-size:10px;color:var(--t3);margin-top:4px">영업이익</div>'
         +'<div style="font-size:14px;font-weight:800;color:'+opColor+'">'+fmt(Math.round(bm.sOp))+'</div>'
         +'<div style="font-size:10px;color:'+opmColor+';margin-top:2px">OPM '+bm.sOpm.toFixed(1)+'%</div>'
-        +'<div style="font-size:9px;color:var(--t3);margin-top:4px">vs계획 '+(dOp>=0?'+':'')+fmt(Math.round(dOp))+'</div>'
+        +'<div style="font-size:9px;color:var(--t3);margin-top:4px">vs목표 '+(dOp>=0?'+':'')+fmt(Math.round(dOp))+'</div>'
         +'</div>';
     });
     html += '</div>';
 
     // BM 비교 테이블
     html += '<div class="card" style="padding:14px">'
-      +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">📊 BM별 손익 비교 (시뮬 vs 계획)</div>'
+      +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">📊 BM별 손익 비교 (시뮬 vs 목표)</div>'
       +'<div style="overflow-x:auto"><table class="tbl" style="font-size:11px;min-width:900px">'
       +'<thead><tr><th style="'+th+';text-align:left;min-width:100px">항목</th>';
     bmData.forEach(function(bm){
@@ -8708,7 +8708,7 @@ function f26RenderDistPlatform(){
       +'<div class="card" style="padding:14px">'
       +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">📋 '+bm.title+' 연간 P&L</div>'
       +'<table class="tbl" style="font-size:11px;width:100%">'
-      +'<thead><tr><th style="'+th+';text-align:left;min-width:130px">항목</th><th style="'+th+'">26E계획</th><th style="'+th+';background:rgba(37,99,235,.08);color:#1d4ed8">26E시뮬</th><th style="'+th+'">차이</th></tr></thead><tbody>';
+      +'<thead><tr><th style="'+th+';text-align:left;min-width:130px">항목</th><th style="'+th+'">26E목표</th><th style="'+th+';background:rgba(37,99,235,.08);color:#1d4ed8">26E시뮬</th><th style="'+th+'">차이</th></tr></thead><tbody>';
 
     var plRows = [
       {l:'I. 매출', pk:'rev', sk:'rev', bold:true},
@@ -9645,7 +9645,7 @@ function f27RenderNarrative(){
     </div>`;
   };
 
-  // ── 추세 vs 계획 갭 테이블 ───────────────────────────────
+  // ── 추세 vs 목표 갭 테이블 ───────────────────────────────
   const gapItems = [
     {l:'매출',      v25:rev25,  v26:rev26,  v27:rev27},
     {l:'영업이익',  v25:op25,   v26:op26,   v27:op27},
@@ -9700,7 +9700,7 @@ function f27RenderNarrative(){
     ${mkCard('📉','감가상각비',dep25,dep26,dep27,reasons.dep,'#6b7280',false)}
   </div>
 
-  <!-- 추세 vs 계획 비교 테이블 -->
+  <!-- 추세 vs 목표 비교 테이블 -->
   <div class="card" style="padding:14px">
     <div style="font-size:12px;font-weight:700;margin-bottom:10px">📈 현재 추세 지속 시나리오 vs 27E 계획 비교</div>
     <div style="font-size:10px;color:var(--t3);margin-bottom:8px">* 추세값: 25년→26E 성장률을 27E에 단순 연장한 값</div>
@@ -16916,7 +16916,7 @@ function exportLaborReport(){
     {l:'인건비 합계 (도급제외)', key:'total_labor', bold:true},
   ];
 
-  let annualTbl = `<table class="rep-tbl"><thead><tr><th>계정과목</th>${allYrs.map(y=>`<th class="${y==='2026E'?'yr26':''}">${y==='2026E'?'2026E (계획)':y+' 실적'}</th>`).join('')}<th>YoY(26E vs25)</th></tr></thead><tbody>`;
+  let annualTbl = `<table class="rep-tbl"><thead><tr><th>계정과목</th>${allYrs.map(y=>`<th class="${y==='2026E'?'yr26':''}">${y==='2026E'?'2026E (목표·KT제출)':y+' 실적'}</th>`).join('')}<th>YoY(26E vs25)</th></tr></thead><tbody>`;
   for(const row of annualSectionRows){
     const vals=allYrs.map(y=>{
       const d=allData[y];
@@ -17328,7 +17328,7 @@ body.edit-mode .tbl tr.mj td,body.edit-mode .tbl tr.r-tot td,body.edit-mode .tbl
 <div class="kpi-row">
   ${allYrs.map(y=>{
     const d=allData[y];
-    return d?`<div class="kpi"><div class="k-lb">${y==='2026E'?'2026E (계획)':y+' 실적'}</div><div class="k-vl">${Math.round(d.total_labor).toLocaleString()}</div><div class="k-ch">인원 ${d.headcount}명</div></div>`:'';
+    return d?`<div class="kpi"><div class="k-lb">${y==='2026E'?'2026E (목표·KT제출)':y+' 실적'}</div><div class="k-vl">${Math.round(d.total_labor).toLocaleString()}</div><div class="k-ch">인원 ${d.headcount}명</div></div>`:'';
   }).join('')}
 </div>
 
@@ -18596,7 +18596,7 @@ function renderDEP(){
     tbl+=`</tbody></table>`;
 
     // CAPEX 요약
-    let ctbl=`<table class="tbl"><thead><tr><th>구분</th><th>2022</th><th>2023</th><th>2024</th><th>2025</th><th class="sim-col">26E계획</th><th>YoY</th></tr></thead><tbody>`;
+    let ctbl=`<table class="tbl"><thead><tr><th>구분</th><th>2022</th><th>2023</th><th>2024</th><th>2025</th><th class="sim-col">26E목표</th><th>YoY</th></tr></thead><tbody>`;
     const crow=[
       {l:'시설장치 취득', h:[578,1474,707,2516],  v26:s.tang_capex||2516},
       {l:'소프트웨어 취득',h:[185,446,199,434],   v26:s.sw_capex||434},
@@ -20881,11 +20881,11 @@ function renderVarianceAnalysis(pl26, w_s, wl_s){
       });
       html+=`</tbody></table></div></div>`;
 
-      // 2026 1~2월 실적 vs 계획 (if available)
+      // 2026 1~2월 실적 vs 목표 (if available)
       if(BM.rev_2026 && BM.rev_2026.length>=2){
         const planRev26=PLAN_2026_FULL?.rev?.mon||[];
         const planOp26=PLAN_2026_FULL?.op?.mon||[];
-        html+=`<div class="card" style="margin-bottom:14px"><div class="card-t">📈 2026년 1~2월 실적 vs 계획</div>
+        html+=`<div class="card" style="margin-bottom:14px"><div class="card-t">📈 2026년 1~2월 실적 vs 목표</div>
         <div style="padding:10px"><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">`;
 
         // KPI cards for Jan/Feb
@@ -20969,7 +20969,7 @@ function renderVarianceAnalysis(pl26, w_s, wl_s){
     }
 
     // 26E 시뮬 항목별 분산 (계획 소스 vs 시뮬)
-    html+=`<div class="card"><div class="card-t">🔍 26E 시뮬레이션 vs 계획 소스 상세 분산</div>
+    html+=`<div class="card"><div class="card-t">🔍 26E 시뮬레이션 vs 목표 소스 상세 분산</div>
     <div style="overflow-x:auto;padding:8px"><table class="tbl" style="font-size:11px"><thead><tr>
       <th>항목</th><th>시뮬 값</th><th>계획 소스</th><th>차이</th><th>차이율</th><th>판정</th>
     </tr></thead><tbody>`;
