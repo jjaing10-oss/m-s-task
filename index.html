@@ -6956,6 +6956,50 @@ function f27ComputeMerged26(){
     });
   });
 
+  // ★ v95: 2단계 — 합산 파생 항목 (하위 → 상위 일관성 보장)
+  // 수수료수입 = pol + mgmt + etc
+  merged.comm = Array(12).fill(0).map((_,i) => ((merged.pol||[])[i]||0) + ((merged.mgmt||[])[i]||0) + ((merged.etc||[])[i]||0));
+  // 매출 = 상품매출 + 수수료수입
+  merged.rev = Array(12).fill(0).map((_,i) => ((merged.prod||[])[i]||0) + (merged.comm[i]||0));
+  // 유통매출 = dist_prod + dist_pol + dist_etc
+  merged.dist_rev = Array(12).fill(0).map((_,i) => ((merged.dist_prod||[])[i]||0) + ((merged.dist_pol||[])[i]||0) + ((merged.dist_etc||[])[i]||0));
+  // 유통원가 = dist_cogs_p + dist_cogs_s
+  merged.dist_cogs = Array(12).fill(0).map((_,i) => ((merged.dist_cogs_p||[])[i]||0) + ((merged.dist_cogs_s||[])[i]||0));
+  // 매출원가: 통신원가(통신매출×원가율) + 유통원가
+  const _telCogsR = PLAN_TEL_FULL.cogs.ann / PLAN_TEL_FULL.rev.ann;
+  merged.cogs = Array(12).fill(0).map((_,i) => {
+    const telRev = (merged.rev[i]||0) - (merged.dist_rev[i]||0);
+    return Math.round(telRev * _telCogsR) + (merged.dist_cogs[i]||0);
+  });
+  // 매출총이익 = 매출 - 원가
+  merged.gp = Array(12).fill(0).map((_,i) => (merged.rev[i]||0) - (merged.cogs[i]||0));
+  // 유통GP
+  merged.dist_gp = Array(12).fill(0).map((_,i) => (merged.dist_rev[i]||0) - (merged.dist_cogs[i]||0));
+  // 마케팅 = sc + sp + adv
+  merged.mkt = Array(12).fill(0).map((_,i) => ((merged.sc||[])[i]||0) + ((merged.sp||[])[i]||0) + ((merged.adv||[])[i]||0));
+  // 인건비 = 세부 합산
+  merged.labor = Array(12).fill(0).map((_,i) => {
+    return ((merged.lb_gen||[])[i]||0)+((merged.lb_sal||[])[i]||0)+((merged.lb_inc||[])[i]||0)
+      +((merged.lb_con||[])[i]||0)+((merged.lb_rew||[])[i]||0)+((merged.lb_ret||[])[i]||0)+((merged.lb_wel||[])[i]||0);
+  });
+  // 기타운영비 = 세부 합산
+  merged.opex = Array(12).fill(0).map((_,i) => {
+    return ['ox_fee','ox_mtg','ox_trn','ox_edu','ox_tel','ox_sup','ox_ent','ox_ins','ox_tax','ox_car','ox_trv','ox_bk']
+      .reduce((s,k) => s + ((merged[k]||[])[i]||0), 0);
+  });
+  // 판관비 = labor + mkt + rent + dep + opex
+  merged.sga = Array(12).fill(0).map((_,i) => {
+    return (merged.labor[i]||0)+(merged.mkt[i]||0)+((merged.rent||[])[i]||0)+((merged.dep||[])[i]||0)+(merged.opex[i]||0);
+  });
+  // 영업이익 = GP - SGA
+  merged.op = Array(12).fill(0).map((_,i) => (merged.gp[i]||0) - (merged.sga[i]||0));
+  // 유통 판관비/영업이익
+  merged.dist_sga = Array(12).fill(0).map((_,i) => {
+    return ['dist_labor','dist_rent','dist_fee','dist_opex','dist_transport','dist_promo','dist_dep','dist_supplies']
+      .reduce((s,k) => s + ((merged[k]||[])[i]||0), 0);
+  });
+  merged.dist_op = Array(12).fill(0).map((_,i) => (merged.dist_gp[i]||0) - (merged.dist_sga[i]||0));
+
   F27.merged26 = merged;
 }
 
@@ -6998,7 +7042,18 @@ function f27Annual27(key){
   const mgmtUnitGr  = (p.revenueGrowth||3) * 0.3 / 100; // 단가 소폭 상승
 
   switch(key){
-    /* ── 전사 매출 ── */
+    /* ── 전사 매출 (rev/comm/gp/sga/op/cogs는 f27Compute 2단계에서 파생 → 여기서 개별 계산 불필요) ── */
+    // ★ prod: CAPA × 대당매출 (26E 대당매출 기준 → 27E 성장률 적용)
+    case 'prod': {
+      const totalCapa26 = wireCapa26 + wlNet26; // 840,000
+      const pu26 = PLAN_2026_FULL.prod.ann / totalCapa26 * 1e6; // 대당상품매출(원)
+      const pu27 = pu26 * (1 + (p.revenueGrowth||3)/100);
+      const totalCapa27 = wireCapa27 + wlNet27;
+      return Math.round(totalCapa27 * pu27 / 1e6);
+    }
+    // ★ dist_prod: 유통 상품매출 (유통성장률 연동)
+    case 'dist_prod': return Math.round(merged26ann * (1+(p.distGrowth||2)/100));
+
     // 관리수수료: Active 비례 × 단가 소폭 인상
     case 'mgmt':   return Math.round(merged26ann * activeRatio * (1 + mgmtUnitGr));
     // 정책수수료: 무선(CAPA×대당정책단가) + 유선(순신규×대당정책단가) 각각
@@ -7204,18 +7259,26 @@ function f27Compute(){
   ['labor','mkt','rent','dep','opex'].forEach(k=>{ if(fc[k]) fc[k].mon.forEach((v,i)=>fc.sga.mon[i]+=v); });
   fc.sga.ann = fc.sga.mon.reduce((s,v)=>s+v, 0);
 
-  // 전사 매출 (26년 합산 기준 성장)
-  const rev27ann = Math.round(PLAN_2026_FULL.rev.ann * (1+F27.params.revenueGrowth/100));
-  fc.rev = {mon: f27MonthlyDistribute('rev', rev27ann), ann:0};
+  // ★ v95: 수수료수입 = pol + mgmt + etc (합산 파생)
+  fc.comm = {mon:Array(12).fill(0), ann:0};
+  ['pol','mgmt','etc'].forEach(k=>{ if(fc[k]) fc[k].mon.forEach((v,i)=>fc.comm.mon[i]+=v); });
+  fc.comm.ann = fc.comm.mon.reduce((s,v)=>s+v, 0);
+
+  // ★ v95: 전사 매출 = 상품매출 + 수수료수입 (합산 파생, 독립 계산 폐지)
+  fc.rev = {mon: fc.prod.mon.map((v,i)=>v+(fc.comm.mon[i]||0)), ann:0};
   fc.rev.ann = fc.rev.mon.reduce((s,v)=>s+v, 0);
 
-  // ★ v91: 유통 원가 먼저 합산 (dist_cogs_p + dist_cogs_s, 이미 개별 계산됨)
+  // ★ v95: 유통 매출 = dist_prod + dist_pol + dist_etc (합산 파생)
+  fc.dist_rev = {mon:Array(12).fill(0), ann:0};
+  ['dist_prod','dist_pol','dist_etc'].forEach(k=>{ if(fc[k]) fc[k].mon.forEach((v,i)=>fc.dist_rev.mon[i]+=v); });
+  fc.dist_rev.ann = fc.dist_rev.mon.reduce((s,v)=>s+v, 0);
+
+  // ★ v95: 유통 원가 = dist_cogs_p + dist_cogs_s (합산 파생)
   fc.dist_cogs = {mon:Array(12).fill(0), ann:0};
   ['dist_cogs_p','dist_cogs_s'].forEach(k=>{ if(fc[k]) fc[k].mon.forEach((v,i)=>fc.dist_cogs.mon[i]+=v); });
   fc.dist_cogs.ann = fc.dist_cogs.mon.reduce((s,v)=>s+v, 0);
 
-  // ★ v91: 통신/유통 원가율 분리
-  // 통신 원가율 = 26E 통신 원가율 × (1 - telCogsImprove%)
+  // ★ v95: 통신/유통 원가율 분리
   const _telCogsR26 = PLAN_TEL_FULL.cogs.ann / PLAN_TEL_FULL.rev.ann;  // 26E 통신 원가율 (약 0.674)
   const telCogsR = _telCogsR26 * (1 - (F27.params.telCogsImprove||0) / 100);
   // 통신 매출원가 = (전사매출 - 유통매출) × 통신원가율
@@ -7245,6 +7308,12 @@ function f27Compute(){
 
   fc.dist_op = {mon: fc.dist_gp.mon.map((v,i)=>v-(fc.dist_sga.mon[i]||0)), ann:0};
   fc.dist_op.ann = fc.dist_op.mon.reduce((s,v)=>s+v, 0);
+
+  // ★ v95: 통신 세그먼트 = 전사 - 유통 (파생)
+  fc.tel_rev = {mon: fc.rev.mon.map((v,i)=>v-(fc.dist_rev.mon[i]||0)), ann:0};
+  fc.tel_rev.ann = fc.tel_rev.mon.reduce((s,v)=>s+v, 0);
+  fc.tel_op = {mon: fc.op.mon.map((v,i)=>v-(fc.dist_op.mon[i]||0)), ann:0};
+  fc.tel_op.ann = fc.tel_op.mon.reduce((s,v)=>s+v, 0);
 
   F27.forecast27 = fc;
   // 28E 자동 연산
@@ -7907,12 +7976,13 @@ function renderF27Merged26(){
     const isProfit=row.key==='op'||row.key==='gp'||row.key.includes('_op')||row.key.includes('_gp');
     const rb=row.highlight?'background:rgba(228,0,43,.04)':row.bold?'background:#fafafa':'';
     const td='border:1px solid #eef2f7;padding:4px 10px;text-align:right;cursor:pointer';
-    // ★ 시뮬 사유
+    // ★ 시뮬 사유 (v95: 합산 파생 항목은 항상 하위합산 표시)
     var reason='';
-    if(row.key==='gp') reason=lastM>=0?'매출-원가 연산':'매출-원가';
-    else if(row.key==='op') reason=lastM>=0?'매출총이익-판관비 연산':'GP-SGA';
-    else if(row.key==='rev') reason=lastM>=0?'하위항목 합산':'계획값';
-    else if(row.key==='mkt') reason=lastM>=0?'SC+SP+ADV 합산':'하위합산';
+    var _derived = {rev:'prod+comm 합산',comm:'pol+mgmt+etc',gp:'매출-원가',op:'GP-SGA',
+      cogs:'통신원가율+유통원가',sga:'인건비+마케팅+임차+감가+기타',mkt:'SC+SP+ADV',
+      labor:'급여+퇴직+복리 합산',opex:'세부항목 합산',
+      dist_rev:'유통 하위합산',dist_cogs:'고정+변동원가',dist_gp:'유통매출-원가',dist_op:'유통GP-SGA'};
+    if(_derived[row.key]) reason=_derived[row.key];
     else reason=_simReason(row.key);
 
     html+=`<tr style="${rb}">
@@ -8396,9 +8466,9 @@ function renderF27Forecast(){
 
   const rowSets={
     pl:[
-      {key:'rev',   label:'매출',        bold:true, logic:'성장률×합산'},
+      {key:'rev',   label:'매출',        bold:true, logic:'prod+comm 합산'},
       {key:'_u_rev',label:'    ↳ 대당매출', unit:true, dim:true, baseKey:'rev', divBy:_totalCapa27, divBy26:_totalCapa26, unitLabel:'원/건', logic:'매출÷CAPA'},
-      {key:'prod',  label:'  상품매출',   dim:true,  logic:'원가율연동'},
+      {key:'prod',  label:'  상품매출',   dim:true,  logic:'CAPA×대당매출'},
       {key:'pol',   label:'  정책수수료', dim:true,  logic:'CAPA비례'},
       {key:'_u_pol',label:'    ↳ 대당정책', unit:true, dim:true, baseKey:'pol', divBy:_wCapa27, divBy26:_wCapa26, unitLabel:'원/건', logic:'정책÷무선CAPA'},
       {key:'mgmt',  label:'  관리수수료', dim:true,  logic:'CAPA×단가×1.01'},
