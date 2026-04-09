@@ -204,8 +204,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .tbl tr.r-sub3 td:first-child{color:#9ca3af}
 .tbl tr.r-unit td{background:rgba(124,58,237,.04);color:#7c3aed;font-size:10px;font-style:italic;border-top:none}
 .tbl tr.r-unit td:first-child{color:#7c3aed;padding-left:28px!important}
-.tbl tr.r-unit-ch td{background:rgba(124,58,237,.02);color:#a78bfa;font-size:9.5px;font-style:italic;border-top:none}
-.tbl tr.r-unit-ch td:first-child{color:#a78bfa;padding-left:44px!important}
+.tbl tr.r-unit-ch td{background:rgba(124,58,237,.03);color:#6d28d9;font-size:10px;font-style:normal;border-top:none;padding:3px 8px}
+.tbl tr.r-unit-ch td:first-child{color:#7c3aed;padding-left:48px!important;font-weight:500}
 .tbl tr.hover-row:hover td{background:#eff6ff!important;cursor:pointer}
 .tbl tr.hover-row td:first-child{color:#1d4ed8}
 .lnk{font-size:9px;padding:1px 5px;border-radius:4px;background:#eff6ff;color:#1d4ed8;font-weight:700;margin-left:3px;vertical-align:middle}
@@ -18455,11 +18455,11 @@ function runIF(){clearTimeout(ifTimer);ifTimer=setTimeout(()=>{renderIF();render
 // ============================================================
 const DEP_HIST={
   years:['2022','2023','2024','2025'],
-  total:  [1154, 1007, 828, 6388],  // 전사 손익 합계 (IFRS16 포함)
-  tang:   [306,  424,  543, 6140],  // 유형(시설장치) — IFRS16 리스 포함
-  intang: [849,  576,  280,  248],  // 무형(소프트웨어)
-  capex:  [775, 1920,  906,  199],  // CAPEX 취득 계
-  sw_capex:[185, 446, 199,  199],   // SW 취득
+  total:  [6130, 6437, 6366, 6388],  // ★ v98 fix: data.json 기준 전사 합계 (구값 1154/1007/828 → 수정)
+  tang:   [5275, 5858, 6083, 6140],  // ★ v98 fix: 유형자산(IFRS16 리스 포함) data.json 기준
+  intang: [855,  579,  283,  248],   // 무형자산(소프트웨어) data.json 기준
+  capex:  [775, 1920,  906,  199],   // CAPEX 취득 계
+  sw_capex:[185, 446, 199,  199],    // SW 취득
 };
 // 유형자산 26E 분기처리 계절성 (기저 상각분 3·6·9·12월 집중)
 // 원본: [18,18,1362, 18,18,1362, 18,18,1362, 21,21,1362] → 분기말 패턴
@@ -18743,6 +18743,19 @@ function renderDEP(){
   const tab=_depTab;
   const prev25=6388;
 
+  // ★ v98 fix: _dep_yr, _dep26, _depHistAnn 선행 정의 (사용 위치보다 앞으로 이동)
+  const _dep_yr = (_activeYear||'2026E');
+  const _dep26 = _dep_yr === '2026E';
+  const _dj = window._dataJSON || {};
+  const _depHistMon = (key) => {
+    const arr = _dj?.pl?.종합?.[key]?.[_dep_yr]?.monthly;
+    return Array.isArray(arr) ? arr.map(v=>Math.round(v||0)) : null;
+  };
+  const _depHistAnn = (key) => {
+    const v = _dj?.pl?.종합?.[key]?.[_dep_yr]?.total;
+    return (v != null) ? Math.round(v) : null;
+  };
+
   // ★ 실적 연도 메트릭 - DEP_HIST 또는 data.json에서 읽기
   const _depAnnForDisplay = _dep26 ? s.total_ann : (() => {
     const fromJson = _depHistAnn('감가상각비');
@@ -18775,20 +18788,23 @@ function renderDEP(){
   // ── 요약 탭 ─────────────────────────────────────────────
   if(tab==='summary'){
     const _depExcelTang = PLAN_TEL_FULL.dep.ann - (pv('dp_sw_base')||434); // 통신tang기저
+    // ★ v98: DEP_HIST 값 참조 — data.json 기준 정확한 22~25 값
     const aRows=[
-      {l:'유형자산(시설장치)', key:'tang',  v26:Math.round(s.tang_ann), h:[306,424,543,6140], cls:'r-sub',
+      {l:'유형자산(시설장치)', key:'tang',  v26:Math.round(s.tang_ann), h:DEP_HIST.tang.slice(), cls:'r-sub',
        sub:[
          {l:'  ↳ 기존 잔여상각', v26:Math.round(s.tang_base)},
          {l:'  ↳ 신규 CAPEX 상각', v26:s.tang_new_ann},
        ]},
-      {l:'무형자산(소프트웨어)',key:'intang',v26:Math.round(s.sw_ann),  h:[849,576,280,248],  cls:'r-sub',
+      {l:'무형자산(소프트웨어)',key:'intang',v26:Math.round(s.sw_ann),  h:DEP_HIST.intang.slice(),  cls:'r-sub',
        sub:[
          {l:'  ↳ 기존 잔여상각', v26:Math.round(s.sw_base)},
          {l:'  ↳ 신규 IT CAPEX 상각', v26:s.sw_new_ann},
        ]},
-      {l:'📡 통신 소계',       v26:Math.round(s.tel_ann), h:[1154,1007,828,6388], cls:'r-sub', ref:PLAN_TEL_FULL.dep.ann},
+      {l:'CAPEX 투자 합계', v26:s.total_capex||0, h:DEP_HIST.capex.slice(), cls:'r-sub2'},
+      {l:'  ↳ SW CAPEX', v26:s.sw_capex||0, h:DEP_HIST.sw_capex.slice(), cls:'r-sub2'},
+      {l:'📡 통신 소계',       v26:Math.round(s.tel_ann), h:DEP_HIST.total.map((v,i)=>v-(i>=2?[0,0,409,37][i]:0)), cls:'r-sub', ref:PLAN_TEL_FULL.dep.ann},
       {l:'🏪 유통플랫폼 상각', v26:Math.round(s.dist_dep), h:[0,0,409,37],        cls:'r-sub2'},
-      {l:'감가상각비 합계',    key:'total', v26:Math.round(s.total_ann),h:[1154,1007,828,6388],cls:'r-op'},
+      {l:'감가상각비 합계',    key:'total', v26:Math.round(s.total_ann),h:DEP_HIST.total.slice(),cls:'r-op'},
     ];
     let tbl=`<table class="tbl"><thead><tr><th style="min-width:180px">항목</th>`;
     DEP_HIST.years.forEach(y=>tbl+=`<th>${y}</th>`);
@@ -18937,21 +18953,9 @@ function renderDEP(){
     {label:'→전사영업이익',target:PLAN_TARGETS.전사영업이익, sim:(()=>{try{return simPLv2().tot.op_ann;}catch(e){return 0;}})(), higherBetter:true, isKey:true, prev:PLAN_PREV25.전사영업이익},
   ]);
   // ── 감가상각비 항목별 분해 드라이버 ──────────────────────────
-  const _dep_yr = (_activeYear||'2026E');
-  const _dep26 = _dep_yr === '2026E';
+  // ★ v98: _dep_yr, _dep26, _depHistAnn은 함수 상단으로 이동됨 (중복 방지)
   _setInpPanelReadonly('depre', !_dep26, _dep_yr);
   if(_dep26){ _setInpPanelReadonly('depre', false, '2026E'); }
-
-  // 실적/26E 모두 pl.종합 데이터 사용
-  const _dj = window._dataJSON || {};
-  const _depHistMon = (key) => {
-    const arr = _dj?.pl?.종합?.[key]?.[_dep_yr]?.monthly;
-    return Array.isArray(arr) ? arr.map(v=>Math.round(v||0)) : null;
-  };
-  const _depHistAnn = (key) => {
-    const v = _dj?.pl?.종합?.[key]?.[_dep_yr]?.total;
-    return (v != null) ? Math.round(v) : null;
-  };
 
   const _tangMon  = _dep26 ? s.tang_mon  : (_depHistMon('감가상각비') || s.tang_mon);
   const _swMon    = _dep26 ? s.sw_mon    : Array(12).fill(0);
