@@ -9859,7 +9859,9 @@ const BM_LABEL_MAP = [
 ];
 
 function bmActSave(){
-  try{ localStorage.setItem(BM_ACT_LS, JSON.stringify({act:BM_ACT,months:BM_LOADED_MONTHS})); }catch(e){}
+  if(!_lsTrySave(BM_ACT_LS, JSON.stringify({act:BM_ACT,months:BM_LOADED_MONTHS}))){
+    console.warn('BM 실적 저장 실패 (용량 부족)');
+  }
 }
 function bmActLoad(){
   try{
@@ -11569,24 +11571,36 @@ function simPLv2(){
   let tot_op_mon=zipSum(tel_op_mon, dist_op_mon), tot_op_ann=tot_op_mon.reduce((a,b)=>a+b,0);
 
   // === 2026년 실제값 오버레이 (입력된 월만 교체) ===
+  // ★ BM/헤더 실적은 전사(tel+dist) 값이므로 dist를 차감하여 tel 산출
   for(let m=0;m<12;m++){
     const aRev=actualGet('rev',m), aCogs=actualGet('cogs',m);
     const aLabor=actualGet('labor',m), aMkt=actualGet('mkt',m);
+    const aRent=actualGet('rent',m), aDep=actualGet('dep',m);
     const aOpex=actualGet('opex',m), aOp=actualGet('op',m);
-    if(aRev!==null)   { tot_rev_mon[m]=aRev; tel_rev_mon[m]=aRev-(dist_rev_mon[m]||0); }
-    if(aCogs!==null)  { tot_cogs_mon[m]=aCogs; tel_cogs_mon[m]=aCogs-(dist_cogs_mon[m]||0); }
-    if(aLabor!==null) tel_labor_mon[m]=aLabor;
-    if(aMkt!==null)   tel_mkt_mon[m]=aMkt;
-    if(aOpex!==null)  tel_opex_mon[m]=aOpex;
+    // dist portions (dp.tot = simDistPlatform 결과)
+    const dRev=dist_rev_mon[m]||0, dCogs=dist_cogs_mon[m]||0;
+    const dLabor=dp.tot.labor_mon?.[m]||0;
+    const dMkt=dist_mkt_mon[m]||0;
+    const dRent=dp.tot.rent_mon?.[m]||0;
+    const dDep=dist_dep_mon[m]||0;
+    const dOpex=(dp.tot.fee_mon?.[m]||0)+(dp.tot.transport_mon?.[m]||0)+(dp.tot.opex_mon?.[m]||0)+(dp.tot.supplies_mon?.[m]||0);
+    const dOp=dist_op_mon[m]||0;
+    if(aRev!==null)   { tot_rev_mon[m]=aRev;   tel_rev_mon[m]=aRev-dRev; }
+    if(aCogs!==null)  { tot_cogs_mon[m]=aCogs;  tel_cogs_mon[m]=aCogs-dCogs; }
+    if(aLabor!==null) tel_labor_mon[m]=aLabor-dLabor;
+    if(aMkt!==null)   tel_mkt_mon[m]=aMkt-dMkt;
+    if(aRent!==null)  tel_rent_mon[m]=aRent-dRent;
+    if(aDep!==null)   tel_dep_mon[m]=aDep-dDep;
+    if(aOpex!==null)  tel_opex_mon[m]=aOpex-dOpex;
     // 재계산
     tot_gp_mon[m]=tot_rev_mon[m]-tot_cogs_mon[m];
     tel_gp_mon[m]=tel_rev_mon[m]-tel_cogs_mon[m];
     tel_sga_mon[m]=tel_labor_mon[m]+tel_mkt_mon[m]+tel_rent_mon[m]+tel_dep_mon[m]+tel_opex_mon[m];
     tel_op_mon[m]=tel_gp_mon[m]-tel_sga_mon[m];
-    if(aOp!==null) { tel_op_mon[m]=aOp; }
-    tot_op_mon[m]=tel_op_mon[m]+(dist_op_mon[m]||0);
+    if(aOp!==null) { tel_op_mon[m]=aOp-dOp; }
+    tot_op_mon[m]=tel_op_mon[m]+dOp;
     tot_sga_mon[m]=tel_sga_mon[m]+(dist_sga_mon[m]||0);
-    tot_mkt_mon[m]=tel_mkt_mon[m]+(dist_mkt_mon[m]||0);
+    tot_mkt_mon[m]=tel_mkt_mon[m]+dMkt;
   }
 
   // 연동 현황 패널 업데이트
@@ -23023,10 +23037,8 @@ function _checkSavedSnapshot(){
 let _state = { planningYear:2026, actuals:{}, planSnapshots:{}, midtermTargets:{} };
 const LS_KEY = 'ktms_state_v92';
 function saveState() {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(_state));
-  } catch(e) {
-    console.warn('localStorage 저장 실패:', e);
+  if(!_lsTrySave(LS_KEY, JSON.stringify(_state))){
+    console.warn('상태 저장 실패 (용량 부족)');
   }
 }
 
@@ -25071,8 +25083,9 @@ function updateActualBadge(){
   el.innerHTML = `📊 ${cnt}개월 실적 반영중 <button onclick="clearAllActual()" style="margin-left:6px;padding:1px 7px;font-size:9px;border-radius:4px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:var(--rd2);cursor:pointer;font-family:inherit">초기화</button>`;
 }
 function _actualSave(){
-  try{ localStorage.setItem(ACTUAL_LS, JSON.stringify(_ACTUAL_MON)); }
-  catch(e){}
+  if(!_lsTrySave(ACTUAL_LS, JSON.stringify(_ACTUAL_MON))){
+    console.warn('실적 데이터 저장 실패 (용량 부족)');
+  }
 }
 function actualGet(key, mon){
   return (_ACTUAL_MON[key]&&_ACTUAL_MON[key][mon]!==undefined) ? _ACTUAL_MON[key][mon] : null;
@@ -25588,6 +25601,16 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   try{
     if(_state.actuals && Object.keys(_state.actuals).length > 0){
       Object.keys(_state.actuals).forEach(yr => syncStateActualsToMon(parseInt(yr)));
+    }
+  }catch(_){}
+  // ★ v94: BM 실적이 로드되었으나 _ACTUAL_MON이 비어있으면 재적용
+  // (이전 세션에서 _actualSave/saveState 용량 초과로 실패했을 수 있음)
+  try{
+    const _bmHasData = typeof BM_ACT!=='undefined' && Object.keys(BM_ACT).length>0;
+    const _actHasData = Object.keys(_ACTUAL_MON).length>0 && Object.values(_ACTUAL_MON).some(o=>Object.keys(o).length>0);
+    if(_bmHasData && !_actHasData){
+      bmApplyToF27();
+      if(typeof loadBMActuals2026==='function') loadBMActuals2026();
     }
   }catch(_){}
   _mtrackEnsure();
