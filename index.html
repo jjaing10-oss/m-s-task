@@ -7784,6 +7784,7 @@ function renderF27Merged26(){
   if(viewTab==='labor_infra'){ el.innerHTML = f26RenderLaborInfra(); return; }
   if(viewTab==='etcfee')     { el.innerHTML = f26RenderEtcFee(); return; }
   if(viewTab==='narrative')  { el.innerHTML = f26RenderNarrative(); return; }
+  if(viewTab==='dist')       { el.innerHTML = f26RenderDistPlatform(); return; }
 
   // ★ 시뮬 사유 생성 헬퍼
   function _simReason(key){
@@ -8519,6 +8520,279 @@ function f26RenderNarrative(){
   +(rev26>planRev?'매출은 BM실적 반영으로 계획 상회':'매출은 계획 수준 또는 하회')+', '
   +(op26>planOp?'영업이익 계획 상회 — 실적 호조':'영업이익 계획 대비 검토 필요')+'.'
   +'</div></div></div>';
+}
+
+
+// ============================================================
+// 🏪 26E 유통플랫폼 BM별 시뮬레이션
+// ============================================================
+function f26RenderDistPlatform(){
+  if(!F27.merged26) f27ComputeMerged26();
+  var m = F27.merged26;
+  var _mAnn = function(k){ return (m[k]||[]).reduce(function(s,v){return s+v;},0); };
+  var fmt = function(v){ return Math.round(v||0).toLocaleString('ko-KR'); };
+  var fmtD = function(v){ return (v||0).toFixed(1); };
+  var th = 'padding:6px 10px;border:1px solid #dde3ee;font-weight:700;font-size:10.5px;background:#f8fafc;color:#64748b;text-align:center';
+  var td = 'border:1px solid #eef2f7;padding:4px 8px;text-align:right;font-size:11px';
+
+  // ★ 전체 유통 시뮬 (merged26)
+  var distRev = _mAnn('dist_rev'), distOp = _mAnn('dist_op');
+  var distCogs = _mAnn('dist_cogs'), distGp = _mAnn('dist_gp');
+  var distLabor = _mAnn('dist_labor'), distSga = _mAnn('dist_sga');
+  var distOpm = distRev ? (distOp/distRev*100) : 0;
+  var planDistRev = PLAN_DIST_FULL.rev.ann, planDistOp = PLAN_DIST_FULL.op.ann;
+  var planDistOpm = planDistRev ? (planDistOp/planDistRev*100) : 0;
+
+  // ★ BM별 시뮬 + 계획 데이터
+  var BM_LABELS = {goodbuy:'굿바이',siyon:'시연폰',coconut:'코코넛',aslog:'AS물류',rental:'임대폰',otherbiz:'기타사업'};
+  var bmData = DP_SECTION_KEYS.map(function(key){
+    var sim = _dpSectionSim(key);
+    var plan = DP_SECTION_26[key];
+    if(!sim || !plan) return null;
+    var sRev = sim.ann.rev, sOp = sim.ann.op;
+    var pRev = plan.data.rev, pOp = plan.data.op;
+    return {
+      key:key, title:BM_LABELS[key]||plan.title,
+      sim:sim, plan:plan,
+      sRev:sRev, sOp:sOp, sCogs:sim.ann.cogs, sGp:sim.ann.gp, sSga:sim.ann.sga,
+      sLabor:sim.ann.labor, sRent:sim.ann.rent, sFee:sim.ann.fee,
+      pRev:pRev, pOp:pOp, pCogs:plan.data.prod_cogs+(plan.data.sale_cogs||0),
+      pLabor:plan.data.labor, pRent:plan.data.rent, pFee:plan.data.fee,
+      sOpm:sRev?(sOp/sRev*100):0, pOpm:pRev?(pOp/pRev*100):0
+    };
+  }).filter(Boolean);
+
+  var selBM = window._f26DistBM || 'total';
+
+  // ── BM 탭 버튼 ──
+  var bmTabs = '<button onclick="window._f26DistBM=\'total\';renderF27Merged26()" style="padding:4px 10px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;'
+    +(selBM==='total'?'background:#111827;color:#fff;border:none':'background:#fff;color:#374151;border:1px solid #dde3ee')+'">전체 합산</button>';
+  bmData.forEach(function(bm){
+    bmTabs += '<button onclick="window._f26DistBM=\''+bm.key+'\';renderF27Merged26()" style="padding:4px 10px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;'
+      +(selBM===bm.key?'background:#111827;color:#fff;border:none':'background:#fff;color:#374151;border:1px solid #dde3ee')+'">'+bm.title+'</button>';
+  });
+
+  var tabBtns = _f26TabBtns('dist');
+  var html = '<div style="max-width:1400px;margin:0 auto">'
+  +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">'+tabBtns+'</div>';
+
+  // ── 상단 배너: 전체 유통 시뮬 vs 계획 ──
+  var revDiff = distRev - planDistRev;
+  var opDiff = distOp - planDistOp;
+  html += '<div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:11px">'
+  +'📌 <b>유통플랫폼 전체 (시뮬↔계획)</b> — 매출: <b>'+fmt(distRev)+'</b> vs '+fmt(planDistRev)+' (<span style="color:'+(revDiff>=0?'#059669':'#dc2626')+'">'+(revDiff>=0?'+':'')+fmt(Math.round(revDiff))+'</span>) '
+  +'/ 영업이익: <b>'+fmt(distOp)+'</b> vs '+fmt(planDistOp)+' (<span style="color:'+(opDiff>=0?'#059669':'#dc2626')+'">'+(opDiff>=0?'+':'')+fmt(Math.round(opDiff))+'</span>) '
+  +'/ OPM: <b>'+distOpm.toFixed(1)+'%</b> vs '+planDistOpm.toFixed(1)+'%'
+  +'<span style="color:var(--t3);margin-left:8px">BM실적·CE편집 반영</span></div>';
+
+  // ── BM 선택 탭 ──
+  html += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">'+bmTabs+'</div>';
+
+  if(selBM === 'total'){
+    // ════ 전체: BM 비교 카드 + 종합 P&L ════
+
+    // KPI 카드 (BM별 매출/영업이익)
+    html += '<div style="display:grid;grid-template-columns:repeat('+Math.min(bmData.length,6)+',1fr);gap:8px;margin-bottom:14px">';
+    bmData.forEach(function(bm){
+      var opmColor = bm.sOpm>=10?'#059669':bm.sOpm>=5?'#d97706':'#dc2626';
+      var opColor = bm.sOp>=0?'#059669':'#dc2626';
+      var dOp = bm.sOp - bm.pOp;
+      html += '<div class="card" style="padding:12px;border-top:3px solid '+(bm.sOp>=0?'#059669':'#dc2626')+'">'
+        +'<div style="font-size:11px;font-weight:700;color:var(--t1);margin-bottom:6px">'+bm.title+'</div>'
+        +'<div style="font-size:10px;color:var(--t3)">매출</div>'
+        +'<div style="font-size:14px;font-weight:800;color:#1d4ed8">'+fmt(Math.round(bm.sRev))+'</div>'
+        +'<div style="font-size:10px;color:var(--t3);margin-top:4px">영업이익</div>'
+        +'<div style="font-size:14px;font-weight:800;color:'+opColor+'">'+fmt(Math.round(bm.sOp))+'</div>'
+        +'<div style="font-size:10px;color:'+opmColor+';margin-top:2px">OPM '+bm.sOpm.toFixed(1)+'%</div>'
+        +'<div style="font-size:9px;color:var(--t3);margin-top:4px">vs계획 '+(dOp>=0?'+':'')+fmt(Math.round(dOp))+'</div>'
+        +'</div>';
+    });
+    html += '</div>';
+
+    // BM 비교 테이블
+    html += '<div class="card" style="padding:14px">'
+      +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">📊 BM별 손익 비교 (시뮬 vs 계획)</div>'
+      +'<div style="overflow-x:auto"><table class="tbl" style="font-size:11px;min-width:900px">'
+      +'<thead><tr><th style="'+th+';text-align:left;min-width:100px">항목</th>';
+    bmData.forEach(function(bm){
+      html += '<th style="'+th+'" colspan="2">'+bm.title+'</th>';
+    });
+    html += '<th style="'+th+';background:rgba(37,99,235,.08);color:#1d4ed8" colspan="2">합계</th></tr>'
+      +'<tr><th style="'+th+'"></th>';
+    bmData.forEach(function(){
+      html += '<th style="'+th+';font-size:9px">계획</th><th style="'+th+';font-size:9px;background:rgba(37,99,235,.05);color:#1d4ed8">시뮬</th>';
+    });
+    html += '<th style="'+th+';font-size:9px">계획</th><th style="'+th+';font-size:9px;background:rgba(37,99,235,.05);color:#1d4ed8">시뮬</th></tr></thead><tbody>';
+
+    var compareRows = [
+      {l:'매출',   pKey:'rev',      sKey:'rev',      hi:true},
+      {l:'  상품매출', pKey:'prod',  sKey:'prod'},
+      {l:'  정책수수료',pKey:'pol',  sKey:'pol'},
+      {l:'  기타수수료',pKey:'etc',  sKey:'etc'},
+      {sep:true},
+      {l:'매출원가', pKey:'_cogs',   sKey:'_cogs'},
+      {l:'매출총이익',pKey:'_gp',    sKey:'_gp',      hi:true},
+      {l:'판관비',    pKey:'_sga',   sKey:'_sga'},
+      {l:'  인건비',  pKey:'labor',  sKey:'labor'},
+      {l:'  임차료',  pKey:'rent',   sKey:'rent'},
+      {l:'  지급수수료',pKey:'fee',  sKey:'fee'},
+      {l:'  판촉비',  pKey:'promo',  sKey:'promo'},
+      {l:'  감가상각', pKey:'dep',   sKey:'dep'},
+      {sep:true},
+      {l:'영업이익', pKey:'op',      sKey:'op',        hi:true, bold:true},
+      {l:'OPM(%)',   pKey:'_opm',    sKey:'_opm',      isPct:true},
+    ];
+
+    compareRows.forEach(function(row){
+      if(row.sep){ html += '<tr><td colspan="'+(2+bmData.length*2)+'" style="height:3px;background:#f8fafc;border:none"></td></tr>'; return; }
+      html += '<tr style="'+(row.hi?'background:rgba(228,0,43,.03)':'')+'">'
+        +'<td style="'+td+';text-align:left;font-weight:'+(row.bold?700:400)+'">'+row.l+'</td>';
+      var planTot=0, simTot=0;
+      bmData.forEach(function(bm){
+        var pv, sv;
+        if(row.pKey==='_cogs'){ pv=bm.pCogs; sv=bm.sCogs; }
+        else if(row.pKey==='_gp'){ pv=bm.pRev-bm.pCogs; sv=bm.sGp; }
+        else if(row.pKey==='_sga'){ pv=bm.pRev-bm.pCogs-bm.pOp; sv=bm.sSga; }
+        else if(row.pKey==='_opm'){ pv=bm.pOpm; sv=bm.sOpm; }
+        else { pv=bm.plan.data[row.pKey]||0; sv=bm.sim.ann[row.sKey]||0; }
+        if(!row.isPct){ planTot+=pv; simTot+=sv; }
+        var fv = row.isPct ? function(v){return v.toFixed(1)+'%';} : function(v){return fmt(Math.round(v));};
+        html += '<td style="'+td+';color:var(--t3);font-size:10px">'+fv(pv)+'</td>'
+          +'<td style="'+td+';background:rgba(37,99,235,.04);color:#1d4ed8;font-weight:'+(row.bold?700:400)+'">'+fv(sv)+'</td>';
+      });
+      // 합계 열
+      if(row.isPct){
+        var pTotOpm=planDistRev?(planDistOp/planDistRev*100):0;
+        var sTotOpm=distRev?(distOp/distRev*100):0;
+        html += '<td style="'+td+';color:var(--t3)">'+pTotOpm.toFixed(1)+'%</td>'
+          +'<td style="'+td+';background:rgba(37,99,235,.06);color:#1d4ed8;font-weight:800">'+sTotOpm.toFixed(1)+'%</td>';
+      } else {
+        html += '<td style="'+td+';color:var(--t3);font-weight:'+(row.bold?700:400)+'">'+fmt(Math.round(planTot))+'</td>'
+          +'<td style="'+td+';background:rgba(37,99,235,.06);color:#1d4ed8;font-weight:'+(row.bold?800:600)+'">'+fmt(Math.round(simTot))+'</td>';
+      }
+      html += '</tr>';
+    });
+    html += '</tbody></table></div></div>';
+
+  } else {
+    // ════ 개별 BM 상세 ════
+    var bm = bmData.filter(function(b){ return b.key===selBM; })[0];
+    if(!bm){ html += '<div style="color:var(--t3)">BM 데이터 없음</div></div>'; return html; }
+
+    var sim = bm.sim;
+    var plan = bm.plan;
+
+    // KPI 요약
+    html += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">';
+    var kpis = [
+      {l:'매출', sv:bm.sRev, pv:bm.pRev, color:'#1d4ed8'},
+      {l:'매출총이익', sv:bm.sGp, pv:bm.pRev-bm.pCogs, color:'#7c3aed'},
+      {l:'영업이익', sv:bm.sOp, pv:bm.pOp, color:bm.sOp>=0?'#059669':'#dc2626'},
+      {l:'OPM', sv:bm.sOpm, pv:bm.pOpm, color:'#d97706', isPct:true},
+      {l:'인건비', sv:bm.sLabor, pv:bm.pLabor, color:'#6b7280'},
+    ];
+    kpis.forEach(function(kpi){
+      var diff = kpi.sv - kpi.pv;
+      var fv = kpi.isPct ? function(v){return v.toFixed(1)+'%';} : function(v){return fmt(Math.round(v));};
+      html += '<div style="background:#fff;border:1px solid #dde3ee;border-radius:10px;padding:12px;text-align:center">'
+        +'<div style="font-size:10px;color:var(--t3)">'+kpi.l+'</div>'
+        +'<div style="font-size:16px;font-weight:800;color:'+kpi.color+'">'+fv(kpi.sv)+'</div>'
+        +'<div style="font-size:10px;color:var(--t3)">계획 '+fv(kpi.pv)+'</div>'
+        +'<div style="font-size:10px;color:'+(diff>=0?'#059669':'#dc2626')+'">'+(diff>=0?'+':'')+(kpi.isPct?diff.toFixed(1)+'pp':fmt(Math.round(diff)))+'</div>'
+        +'</div>';
+    });
+    html += '</div>';
+
+    // 상세 P&L (연간)
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+      +'<div class="card" style="padding:14px">'
+      +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">📋 '+bm.title+' 연간 P&L</div>'
+      +'<table class="tbl" style="font-size:11px;width:100%">'
+      +'<thead><tr><th style="'+th+';text-align:left;min-width:130px">항목</th><th style="'+th+'">26E계획</th><th style="'+th+';background:rgba(37,99,235,.08);color:#1d4ed8">26E시뮬</th><th style="'+th+'">차이</th></tr></thead><tbody>';
+
+    var plRows = [
+      {l:'I. 매출', pk:'rev', sk:'rev', bold:true},
+      {l:'  상품서비스매출', pk:'prod', sk:'prod'},
+      {l:'  광고 수익',      pk:'ad',   sk:'ad'},
+      {l:'  시연폰 장려금',  pk:'demo', sk:'demo'},
+      {l:'  정책수수료',     pk:'pol',  sk:'pol'},
+      {l:'  기타수수료',     pk:'etc',  sk:'etc'},
+      {sep:true},
+      {l:'II. 매출원가',     pk:'_cogs',sk:'cogs', bold:true},
+      {l:'  상품원가',       pk:'prod_cogs', sk:'prod_cogs'},
+      {l:'  매각원가',       pk:'sale_cogs', sk:'sale_cogs'},
+      {sep:true},
+      {l:'III. 매출총이익',  pk:'_gp', sk:'gp', bold:true, hi:true},
+      {sep:true},
+      {l:'IV. 판관비',       pk:'_sga', sk:'sga', bold:true},
+      {l:'  인건비',         pk:'labor', sk:'labor'},
+      {l:'  임차료',         pk:'rent',  sk:'rent'},
+      {l:'  지급수수료',     pk:'fee',   sk:'fee'},
+      {l:'  운반비',         pk:'transport', sk:'transport'},
+      {l:'  광고홍보비',     pk:'adpromo', sk:'adpromo'},
+      {l:'  판촉비/회의비',  pk:'promo', sk:'promo'},
+      {l:'  기타운영비',     pk:'opex',  sk:'opex'},
+      {l:'  소모품비',       pk:'supplies', sk:'supplies'},
+      {l:'  감가상각비',     pk:'dep',   sk:'dep'},
+      {sep:true},
+      {l:'V. 영업이익',      pk:'op', sk:'op', bold:true, hi:true},
+    ];
+
+    plRows.forEach(function(row){
+      if(row.sep){ html += '<tr><td colspan="4" style="height:3px;background:#f8fafc;border:none"></td></tr>'; return; }
+      var pv, sv;
+      if(row.pk==='_cogs') pv = (plan.data.prod_cogs||0)+(plan.data.sale_cogs||0);
+      else if(row.pk==='_gp') pv = plan.data.rev - ((plan.data.prod_cogs||0)+(plan.data.sale_cogs||0));
+      else if(row.pk==='_sga') pv = plan.data.rev - ((plan.data.prod_cogs||0)+(plan.data.sale_cogs||0)) - plan.data.op;
+      else pv = plan.data[row.pk]||0;
+      sv = (row.sk==='cogs'||row.sk==='gp'||row.sk==='sga') ? sim.ann[row.sk] : (sim.ann[row.sk]||0);
+      var diff = sv - pv;
+      var isRev = row.l.includes('매출')||row.l.includes('이익');
+      var ok = isRev ? diff>=0 : diff<=0;
+      html += '<tr style="'+(row.hi?'background:rgba(228,0,43,.04)':'')+'">'
+        +'<td style="'+td+';text-align:left;font-weight:'+(row.bold?700:400)+'">'+row.l+'</td>'
+        +'<td style="'+td+';color:var(--t3)">'+fmt(Math.round(pv))+'</td>'
+        +'<td style="'+td+';background:rgba(37,99,235,.06);font-weight:'+(row.bold?700:400)+';color:#1d4ed8">'+fmt(Math.round(sv))+'</td>'
+        +'<td style="'+td+';color:'+(Math.round(diff)===0?'var(--t3)':ok?'#059669':'#dc2626')+';font-weight:600">'+(Math.round(diff)===0?'—':(diff>=0?'+':'')+fmt(Math.round(diff)))+'</td></tr>';
+    });
+    html += '</tbody></table></div>';
+
+    // 월별 테이블 (주요 항목)
+    html += '<div class="card" style="padding:14px">'
+      +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">📅 '+bm.title+' 월별 추이</div>'
+      +'<div style="overflow-x:auto"><table class="tbl" style="font-size:10px;min-width:700px">'
+      +'<thead><tr><th style="'+th+';text-align:left;min-width:90px">항목</th><th style="'+th+'">연간</th>';
+    for(var mi=0;mi<12;mi++) html += '<th style="'+th+'">'+(mi+1)+'월</th>';
+    html += '</tr></thead><tbody>';
+
+    var monKeys = [
+      {l:'매출', k:'rev', calc:true, bold:true},
+      {l:'  상품매출', k:'prod'},
+      {l:'  정책수수료', k:'pol'},
+      {l:'원가', k:'cogs', calc:true},
+      {l:'GP', k:'gp', calc:true, bold:true},
+      {l:'인건비', k:'labor'},
+      {l:'지급수수료', k:'fee'},
+      {l:'판촉비', k:'promo'},
+      {l:'영업이익', k:'op', calc:true, bold:true, hi:true},
+    ];
+    monKeys.forEach(function(mk){
+      var monArr = mk.calc ? sim.calc[mk.k] : sim.mon[mk.k];
+      var annVal = mk.calc ? sim.ann[mk.k] : sim.ann[mk.k];
+      if(!monArr) monArr = Array(12).fill(0);
+      html += '<tr style="'+(mk.hi?'background:rgba(228,0,43,.04)':'')+'">'
+        +'<td style="'+td+';text-align:left;font-weight:'+(mk.bold?700:400)+'">'+mk.l+'</td>'
+        +'<td style="'+td+';font-weight:700;background:rgba(37,99,235,.04)">'+fmt(Math.round(annVal||0))+'</td>';
+      for(var mi=0;mi<12;mi++){
+        html += '<td style="'+td+'">'+fmt(Math.round(monArr[mi]||0))+'</td>';
+      }
+      html += '</tr>';
+    });
+    html += '</tbody></table></div></div></div>';
+  }
+
+  html += '</div>';
+  return html;
 }
 
 
