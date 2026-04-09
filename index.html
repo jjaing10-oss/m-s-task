@@ -148,9 +148,6 @@ body{font-family:'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif
 .secondary-wrap{background:#f8fafc;border-bottom:1px solid #dde3ee;padding:0 24px 10px;position:sticky;top:141px;z-index:270}
 .secondary-row{display:none;gap:6px;flex-wrap:wrap}
 .secondary-row.active{display:flex}
-.secondary-row 
-.secondary-row 
-.secondary-row 
 
 /* ══ LAYOUT ══ */
 .sheet{display:none!important;padding:24px}.sheet.active{display:block!important;overflow-x:hidden}
@@ -12597,7 +12594,7 @@ function simPLv2(){
   const tel_sga_ann  = _BASE_SGA + _delta_labor + _delta_mkt + _delta_rent + _delta_dep + _delta_opex;
   let tel_sga_mon=zipSum(tel_labor_mon,tel_mkt_mon,tel_rent_mon,tel_dep_mon,tel_opex_mon);
   // 월별 합계를 연간 기준값(delta 보정된)으로 재조정
-  {const _cur=tel_sga_mon.reduce((a,b)=>a+b,0);if(Math.abs(_cur-tel_sga_ann)>1){const _r=tel_sga_ann/_cur;tel_sga_mon=tel_sga_mon.map(v=>Math.round(v*_r));tel_sga_mon[11]+=tel_sga_ann-tel_sga_mon.reduce((a,b)=>a+b,0);}}
+  {const _cur=tel_sga_mon.reduce((a,b)=>a+b,0);if(_cur!==0&&Math.abs(_cur-tel_sga_ann)>1){const _r=tel_sga_ann/_cur;tel_sga_mon=tel_sga_mon.map(v=>Math.round(v*_r));tel_sga_mon[11]+=tel_sga_ann-tel_sga_mon.reduce((a,b)=>a+b,0);}}
   let tel_op_mon=tel_gp_mon.map((v,m)=>v-tel_sga_mon[m]);
   const tel_op_ann=tel_op_mon.reduce((a,b)=>a+b,0);
 
@@ -12611,7 +12608,7 @@ function simPLv2(){
   let dist_dep_ann=dp.tot.dep||0;
   let dist_dep_mon=(dp.tot.dep_mon||Array(12).fill(0)).slice();
   let dist_other_ann=dp.tot.other!=null?dp.tot.other:(dp.tot.sga_ann - dist_labor_ann - dist_dep_ann);
-  let dist_other_mon=(dp.tot.other_mon||dp.tot.sga_mon.map((v,m)=>Math.max(0,v-(dp.tot.labor_mon?.[m]||0)-(dist_dep_mon[m]||0)))).slice();
+  let dist_other_mon=(dp.tot.other_mon||(dp.tot.sga_mon?dp.tot.sga_mon.map((v,m)=>Math.max(0,v-(dp.tot.labor_mon?.[m]||0)-(dist_dep_mon[m]||0))):Array(12).fill(0))).slice();
   let dist_sga_ann=dp.tot.sga_ann;
   let dist_sga_mon=dp.tot.sga_mon.slice();
   let dist_op_mon=dp.tot.op_mon.slice();
@@ -13039,23 +13036,44 @@ function plTable(rows26E, hRows, H_ref){
     // 접힌 섹션의 자식 행은 숨김
     if(_isRowHidden(r)) continue;
 
-    // ★ v93: 대당/인당 파생 행 — 별도 렌더
+    // ★ v99: 대당/인당/건당 파생 행 — 바텀업 구조 렌더
     if(r.derived){
       if(r.isHeader){
-        // ★ v97: 채널별 그룹 헤더 행 (값 없이 라벨만 표시)
+        // 채널별 그룹 헤더 행
         tbl+=`<tr class="${r.cls||'r-unit'}"><td style="font-weight:600;font-size:9.5px;color:#7c3aed">${r.l}</td>`;
-        YRS.forEach(()=>tbl+=`<td style="color:#c4b5fd">—</td>`);
+        YRS.forEach(()=>tbl+=`<td style="color:#e9e5f5">·</td>`);
         tbl+=`<td></td>`;
         if(show27E) tbl+=`<td></td>`;
         tbl+=`<td></td><td></td></tr>`;
         continue;
       }
       const _uv = r.v26||0;
-      const _uf = typeof _uv==='number'&&_uv>=1000 ? Math.round(_uv).toLocaleString('ko-KR') : (typeof _uv==='number'? _uv.toLocaleString('ko-KR',{maximumFractionDigits:1}) : _uv);
+      const _uf = typeof _uv==='number'&&Math.abs(_uv)>=1000 ? Math.round(_uv).toLocaleString('ko-KR') : (typeof _uv==='number'? _uv.toLocaleString('ko-KR',{maximumFractionDigits:1}) : _uv);
+      // ★ v99: 바텀업 formula가 있으면 CAPA×단가 구조 표시
+      let _buHtml = '';
+      if(r.bu){
+        const _bpu = r.bu.pu!=null ? Math.round(r.bu.pu).toLocaleString('ko-KR') : '';
+        const _bcu = r.bu.cu!=null ? Math.round(r.bu.cu).toLocaleString('ko-KR') : '';
+        const _bcap = r.bu.capa!=null ? (r.bu.capa>=10000 ? (r.bu.capa/10000).toFixed(1)+'만' : r.bu.capa.toLocaleString('ko-KR')) : '';
+        const _bfee = r.bu.fee!=null ? Math.round(r.bu.fee).toLocaleString('ko-KR') : '';
+        const _bact = r.bu.active!=null ? (r.bu.active>=10000 ? (r.bu.active/10000).toFixed(1)+'만' : Math.round(r.bu.active).toLocaleString('ko-KR')) : '';
+        if(_bpu && _bcap) _buHtml = `<div style="font-size:8px;color:#8b5cf6;margin-top:1px">PU ${_bpu} × ${_bcap}건</div>`;
+        else if(_bcu && _bcap) _buHtml = `<div style="font-size:8px;color:#8b5cf6;margin-top:1px">CU ${_bcu} × ${_bcap}건</div>`;
+        else if(_bfee && _bact) _buHtml = `<div style="font-size:8px;color:#8b5cf6;margin-top:1px">월${_bfee}원 × ${_bact}가입</div>`;
+        else if(r.bu.desc) _buHtml = `<div style="font-size:8px;color:#8b5cf6;margin-top:1px">${r.bu.desc}</div>`;
+      }
       tbl+=`<tr class="${r.cls||'r-unit'}"><td>${r.l}</td>`;
-      YRS.forEach(()=>tbl+=`<td style="color:#c4b5fd">—</td>`);
-      tbl+=`<td style="font-weight:600;color:#7c3aed">${_uf} <span style="font-size:8px;color:#a78bfa">${r.unitLabel||''}</span></td>`;
-      if(show27E) tbl+=`<td>—</td>`;
+      // 히스토리컬 년도: hist 배열이 있으면 표시, 없으면 ·
+      if(r.hist && r.hist.length>=4){
+        r.hist.forEach(hv=>{
+          const hvf = hv!=null&&hv!==0 ? (typeof hv==='number'&&Math.abs(hv)>=1000?Math.round(hv).toLocaleString('ko-KR'):hv.toLocaleString('ko-KR',{maximumFractionDigits:1})) : '·';
+          tbl+=`<td style="color:#a78bfa;font-size:9px">${hvf}</td>`;
+        });
+      } else {
+        YRS.forEach(()=>tbl+=`<td style="color:#e9e5f5">·</td>`);
+      }
+      tbl+=`<td style="font-weight:600;color:#7c3aed">${_uf} <span style="font-size:8px;color:#a78bfa">${r.unitLabel||''}</span>${_buHtml}</td>`;
+      if(show27E) tbl+=`<td style="color:#c4b5fd">·</td>`;
       tbl+=`<td></td><td></td></tr>`;
       continue;
     }
@@ -13369,70 +13387,84 @@ function renderPL(){
     const _lbRewAnn = lb.reward_ann;
     const _lbRetAnn = lb.retire_ann;
     const _lbWelAnn = lb.welfare_ann;
-    // ★ v97: 채널별 상품매출·원가 — simWireless() bottom-up 데이터 사용
+    // ★ v99: 채널별 바텀업 행 — PU×CAPA=매출, CU×CAPA=원가, 활성×수수료=관리수수료
     const _chProdRows = W_CH_NO_IOT.map(ch => {
       const prodAnn = (_wSim.prodRevByCh?.[ch]||[]).reduce((a,b)=>a+b,0);
-      return {l:'      '+ch, hk:null, v26:prodAnn, mon26:(_wSim.prodRevByCh?.[ch]||null), cls:'r-unit-ch', derived:true, unitLabel:'백만'};
+      const chCapa = _capaChAnn[ch]||0;
+      return {l:'      '+ch, hk:null, v26:prodAnn, mon26:(_wSim.prodRevByCh?.[ch]||null), cls:'r-unit-ch', derived:true, unitLabel:'백만',
+        bu:{pu:_wSim.chPU?.[ch]||0, capa:chCapa}};
     });
     const _chCogRows = W_CH_NO_IOT.map(ch => {
       const cogsAnn = (_wSim.prodCogsByCh?.[ch]||[]).reduce((a,b)=>a+b,0);
-      return {l:'      '+ch, hk:null, v26:cogsAnn, mon26:(_wSim.prodCogsByCh?.[ch]||null), cls:'r-unit-ch', derived:true, unitLabel:'백만'};
+      const chCapa = _capaChAnn[ch]||0;
+      return {l:'      '+ch, hk:null, v26:cogsAnn, mon26:(_wSim.prodCogsByCh?.[ch]||null), cls:'r-unit-ch', derived:true, unitLabel:'백만',
+        bu:{cu:_wSim.chCU?.[ch]||0, capa:chCapa}};
     });
-    // 채널별 관리수수료 행
+    // 채널별 관리수수료 바텀업: 활성가입자 × 수수료단가
     const _chMgmtRows = _wSim.activeChannels.map(ch => {
       const mgmtAnn = Math.round((_wSim.관리수수료[ch]||[]).reduce((a,b)=>a+b,0));
-      return {l:'        '+ch, hk:null, v26:mgmtAnn, mon26:_wSim.관리수수료[ch]?.map(v=>Math.round(v))||null, cls:'r-unit-ch', derived:true, unitLabel:'백만'};
+      const actAnn = Math.round((_wSim.active[ch]||[]).reduce((a,b)=>a+b,0)/12);
+      const feeUnit = _wSim.fee?.[ch]||0;
+      return {l:'        '+ch, hk:null, v26:mgmtAnn, mon26:_wSim.관리수수료[ch]?.map(v=>Math.round(v))||null, cls:'r-unit-ch', derived:true, unitLabel:'백만',
+        bu:{fee:feeUnit, active:actAnn}};
     });
     rows26E=[
       {l:'I. 매출',               hk:'rev',   v26:s.tel.rev_ann,          mon26:s.tel.rev_mon,     cls:'r-tot'},
       {l:'  상품매출',             hk:'prod',  v26:s.tel.prod_ann,         mon26:s.tel.prod_mon,    lnk:true, cls:'r-sub'},
-      {l:'    └ 대당매출(가중평균)',hk:null,    v26:_unitCalc(s.tel.prod_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
-      {l:'    └ 채널별 대당매출',   hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
-      ...W_CH_NO_IOT.map(ch => ({l:'        '+ch, hk:null, v26:_wSim.chPU?.[ch]||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'})),
-      {l:'    └ 채널별 상품매출',   hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      {l:'    └ 대당매출(가중평균)',hk:null,    v26:_unitCalc(s.tel.prod_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건',
+        bu:{desc:`CAPA ${(_capaNoIoT/10000).toFixed(1)}만건 기준`}},
+      {l:'    └ 채널별 상품매출 바텀업 (PU×CAPA)', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
       ..._chProdRows,
       {l:'  수수료수입',           hk:'comm',  v26:s.tel.comm_ann,         mon26:s.tel.comm_mon,    cls:'r-sub'},
       {l:'    정책수수료',         hk:'pol',   v26:s.tel.pol_ann,          mon26:s.tel.pol_mon,     lnk:true, cls:'r-sub2'},
-      {l:'      └ 대당정책수수료', hk:null,    v26:_unitCalc(s._drv.w_pol_total, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'      └ 대당정책수수료', hk:null,    v26:_unitCalc(s._drv.w_pol_total, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건',
+        bu:{desc:`무선정책 ${fmt(s._drv.w_pol_total)}백만 ÷ ${(_capaNoIoT/10000).toFixed(1)}만건`}},
       {l:'      무선 정책수수료', hk:null,    v26:s._drv.w_pol_total,     mon26:s._drv.w_pol_mon,  cls:'r-sub3'},
       {l:'        └ 무선 건당정책', hk:null,  v26:_capaNoIoT>0?Math.round(s._drv.w_pol_total*1e6/_capaNoIoT):0, mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'      유선 정책수수료', hk:null,    v26:s._drv.wl_pol_ann,      mon26:s._drv.wl_pol_mon, cls:'r-sub3'},
       {l:'        └ 유선 건당정책', hk:null,  v26:s._drv.wl_net_total>0?Math.round(s._drv.wl_pol_ann*1e6/s._drv.wl_net_total):0, mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'    관리수수료',         hk:'mgmt',  v26:s.tel.mgmt_ann,         mon26:s.tel.mgmt_mon,    lnk:true, cls:'r-sub2'},
-      {l:'      └ 무선 채널별 관리수수료', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      {l:'      └ 무선 바텀업 (활성×수수료단가)', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
       ..._chMgmtRows,
-      {l:'      무선 관리수수료', hk:null,    v26:s._drv.w_mgmt_total,    mon26:s._drv.w_mgmt_mon, cls:'r-sub3'},
-      {l:'      유선 관리수수료', hk:null,    v26:s._drv.wl_mgmt_total,   mon26:s._drv.wl_mgmt_mon,cls:'r-sub3'},
-      {l:'        └ 유선 채널별 관리수수료', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      {l:'      무선 관리수수료 소계', hk:null, v26:s._drv.w_mgmt_total, mon26:s._drv.w_mgmt_mon, cls:'r-sub3'},
+      {l:'      유선 관리수수료',      hk:null, v26:s._drv.wl_mgmt_total, mon26:s._drv.wl_mgmt_mon, cls:'r-sub3'},
+      {l:'        └ 유선 채널별 바텀업', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
       ...(s._drv.wl_mgmt_chs||[]).map(ch => ({l:'          '+ch, hk:null, v26:Math.round((s._drv.wl_mgmt_by_ch[ch]||0)), mon26:s._drv.wl_mgmt_mon_by_ch[ch]||null, cls:'r-unit-ch', derived:true, unitLabel:'백만'})),
       {l:'    기타수수료',         hk:'etc',   v26:s.tel.etc_ann,          mon26:s.tel.etc_mon,     lnk:true, cls:'r-sub2'},
       {l:'II. 매출원가',           hk:'cogs',  v26:s.tel.cogs_ann,         mon26:s.tel.cogs_mon,    lnk:true, cls:'r-tot'},
-      {l:'    └ 대당원가(가중평균)',hk:null,    v26:_unitCalc(s.tel.cogs_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
-      {l:'    └ 채널별 대당원가',   hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
-      ...W_CH_NO_IOT.map(ch => ({l:'        '+ch, hk:null, v26:_wSim.chCU?.[ch]||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'})),
-      {l:'    └ 채널별 매출원가',   hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      {l:'    └ 대당원가(가중평균)',hk:null,    v26:_unitCalc(s.tel.cogs_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건',
+        bu:{desc:`CAPA ${(_capaNoIoT/10000).toFixed(1)}만건 기준`}},
+      {l:'    └ 채널별 매출원가 바텀업 (CU×CAPA)', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
       ..._chCogRows,
       {l:'III. 매출총이익',        hk:'gp',    v26:s.tel.gp_ann,           mon26:s.tel.gp_mon,      cls:'r-gp'},
-      {l:'    └ 건당판매손익',     hk:null,    v26:_unitCalc(s.tel.gp_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'    └ 건당판매손익',     hk:null,    v26:_unitCalc(s.tel.gp_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건',
+        bu:{desc:`매출총이익 ${fmt(s.tel.gp_ann)}백만 ÷ ${(_capaNoIoT/10000).toFixed(1)}만건`}},
       {l:'IV. 판관비',             hk:'sga',   v26:s.tel.sga_ann,          mon26:s.tel.sga_mon,     cls:'r-sga'},
       {l:'  인건비',               hk:'labor', v26:s.tel.labor_ann,        mon26:s.tel.labor_mon,   lnk:true, cls:'r-sub'},
-      {l:'    └ 인당인건비',       hk:null,    v26:Math.round(s.tel.labor_ann/_hcAvg*100)/100, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
+      {l:'    └ 인당인건비',       hk:null,    v26:Math.round(s.tel.labor_ann/_hcAvg*100)/100, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년',
+        bu:{desc:`인원 ${Math.round(_hcAvg)}명 기준`},
+        hist:[Math.round(H_TEL.labor[0]/(LB_HIST?.hc_total?.[0]||2125)*100)/100, Math.round(H_TEL.labor[1]/(LB_HIST?.hc_total?.[1]||2107)*100)/100, Math.round(H_TEL.labor[2]/(LB_HIST?.hc_total?.[2]||2102)*100)/100, Math.round(H_TEL.labor[3]/(LB_HIST?.hc_total?.[3]||2193)*100)/100]},
       {l:'    일반직 급여',        hk:null,    v26:_lbGenAnn,              mon26:lb.gen_mon,        cls:'r-sub2', lnk:true},
-      {l:'      └ 일반직 인당연봉',hk:null,    v26:lb.gen_hc>0?Math.round(_lbGenAnn/lb.gen_hc*10)/10:0, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
+      {l:'      └ 일반직 인당연봉',hk:null,    v26:lb.gen_hc>0?Math.round(_lbGenAnn/lb.gen_hc*10)/10:0, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년',
+        bu:{desc:`${lb.gen_hc}명`}},
       {l:'    영업직군 급여',      hk:null,    v26:_lbSalAnn,              mon26:lb.sal_mon,        cls:'r-sub2', lnk:true},
-      {l:'      └ 영업직 인당연봉',hk:null,    v26:lb.sal_hc>0?Math.round(_lbSalAnn/lb.sal_hc*10)/10:0, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
+      {l:'      └ 영업직 인당연봉',hk:null,    v26:lb.sal_hc>0?Math.round(_lbSalAnn/lb.sal_hc*10)/10:0, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년',
+        bu:{desc:`${lb.sal_hc}명`}},
       {l:'    특별격려금',         hk:null,    v26:_lbBonAnn,              mon26:lb.bonus_arr,      cls:'r-sub2'},
       {l:'    포상비',             hk:null,    v26:_lbRewAnn,              mon26:lb.reward_arr,     cls:'r-sub2'},
       {l:'    퇴직급여충당금',     hk:null,    v26:_lbRetAnn,              mon26:lb.retire_arr,     cls:'r-sub2'},
       {l:'    복리후생비',         hk:null,    v26:_lbWelAnn,              mon26:lb.welfare_arr,    cls:'r-sub2'},
       {l:'  마케팅비용',           hk:'mkt',   v26:s.tel.mkt_ann,          mon26:s.tel.mkt_mon,     lnk:true, cls:'r-sub'},
       {l:'    판매수수료',         hk:'sc',    v26:s.tel.sc_ann,           mon26:s.tel.sc_mon,      lnk:true, cls:'r-sub2'},
-      {l:'      └ 건당판매수수료', hk:null,    v26:_unitCalc(s.tel.sc_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'      └ 건당판매수수료', hk:null,    v26:_unitCalc(s.tel.sc_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건',
+        bu:{desc:`${fmt(s.tel.sc_ann)}백만 ÷ ${(_capaNoIoT/10000).toFixed(1)}만건`}},
       {l:'    판촉비',             hk:'sp',    v26:s.tel.sp_ann,           mon26:s.tel.sp_mon,      lnk:true, cls:'r-sub2'},
-      {l:'      └ 건당판촉비',     hk:null,    v26:_unitCalc(s.tel.sp_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'      └ 건당판촉비',     hk:null,    v26:_unitCalc(s.tel.sp_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건',
+        bu:{desc:`${fmt(s.tel.sp_ann)}백만 ÷ ${(_capaNoIoT/10000).toFixed(1)}만건`}},
       {l:'    광고선전비',         hk:'adv',   v26:s.tel.adv_ann,          mon26:s.tel.adv_mon,     lnk:true, cls:'r-sub2'},
       {l:'  임차관리비',           hk:'rent',  v26:s.tel.rent_ann,         mon26:s.tel.rent_mon,    lnk:true, cls:'r-sub'},
-      {l:'    └ 점당 관리비',     hk:null,    v26:ifr.mgmt_per_store||0, mon26:null, cls:'r-unit', derived:true, unitLabel:'원/점·월'},
+      {l:'    └ 점당 관리비',     hk:null,    v26:ifr.mgmt_per_store||0, mon26:null, cls:'r-unit', derived:true, unitLabel:'원/점·월',
+        bu:{desc:`관리비 ÷ 매장 ${Math.round((ifr.sr26m||[]).reduce((a,b)=>a+b,0)/12)||257}점`}},
       {l:'    건물임차료',         hk:null,    v26:ifr.building_ann,       mon26:ifr.building_mon,  cls:'r-sub2', lnk:true},
       {l:'    수도광열비',         hk:null,    v26:ifr.util_ann,           mon26:ifr.util_mon,      cls:'r-sub2', lnk:true},
       {l:'  감가상각비',           hk:'dep',   v26:s.tel.dep_ann,          mon26:s.tel.dep_mon,     lnk:true, cls:'r-sub'},
@@ -13453,7 +13485,8 @@ function renderPL(){
       {l:'      └ 인당 차량비',   hk:null,    v26:_hcAvg>0?Math.round(ox.car*1e6/_hcAvg/12):0, mon26:null, cls:'r-unit', derived:true, unitLabel:'원/인·월'},
       {l:'    세금과공과',         hk:null,    v26:ox.tax_pub,             mon26:ox.tax_mon,        cls:'r-sub2'},
       {l:'V. 영업이익',            hk:'op',    v26:s.tel.op_ann,           mon26:s.tel.op_mon,      cls:'r-op'},
-      {l:'    └ 건당영업이익',     hk:null,    v26:_unitCalc(s.tel.op_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'    └ 건당영업이익',     hk:null,    v26:_unitCalc(s.tel.op_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건',
+        bu:{desc:`영업이익 ${fmt(s.tel.op_ann)}백만 ÷ ${(_capaNoIoT/10000).toFixed(1)}만건`}},
     ];
   } else if(tab==='dist'){
     H_ref=H_DIST; rev26=s.dist.rev_ann; op26=s.dist.op_ann;
@@ -13492,45 +13525,60 @@ function renderPL(){
     const PD={rev:{ann:dpd.tot.rev,mon:dpd.tot.rev_mon},pol:{ann:dpd.tot.pol||0,mon:dpd.tot.pol_mon||Array(12).fill(0)},etc:{ann:dpd.tot.etc||0,mon:dpd.tot.etc_mon||Array(12).fill(0)}};
     const _lb2GenAnn = Math.round(lb2.gen_mon.reduce((a,b)=>a+b,0));
     const _lb2SalAnn = Math.round(lb2.sal_mon.reduce((a,b)=>a+b,0));
-    // ★ v97: 채널별 상품매출·원가·관리수수료 bottom-up 데이터
-    const _chProdRows2 = W_CH_NO_IOT.map(ch => ({l:'          '+ch, hk:null, v26:(_wSim.prodRevByCh?.[ch]||[]).reduce((a,b)=>a+b,0), mon26:_wSim.prodRevByCh?.[ch]||null, cls:'r-unit-ch', derived:true, unitLabel:'백만'}));
-    const _chCogRows2 = W_CH_NO_IOT.map(ch => ({l:'          '+ch, hk:null, v26:(_wSim.prodCogsByCh?.[ch]||[]).reduce((a,b)=>a+b,0), mon26:_wSim.prodCogsByCh?.[ch]||null, cls:'r-unit-ch', derived:true, unitLabel:'백만'}));
-    const _chMgmtRows2 = _wSim.activeChannels.map(ch => ({l:'          '+ch, hk:null, v26:Math.round((_wSim.관리수수료[ch]||[]).reduce((a,b)=>a+b,0)), mon26:_wSim.관리수수료[ch]?.map(v=>Math.round(v))||null, cls:'r-unit-ch', derived:true, unitLabel:'백만'}));
+    // ★ v99: 채널별 바텀업 행 — PU×CAPA, CU×CAPA, 활성×수수료
+    const _chProdRows2 = W_CH_NO_IOT.map(ch => {
+      const prodAnn = (_wSim.prodRevByCh?.[ch]||[]).reduce((a,b)=>a+b,0);
+      return {l:'          '+ch, hk:null, v26:prodAnn, mon26:_wSim.prodRevByCh?.[ch]||null, cls:'r-unit-ch', derived:true, unitLabel:'백만',
+        bu:{pu:_wSim.chPU?.[ch]||0, capa:_capaChAnn[ch]||0}};
+    });
+    const _chCogRows2 = W_CH_NO_IOT.map(ch => {
+      const cogsAnn = (_wSim.prodCogsByCh?.[ch]||[]).reduce((a,b)=>a+b,0);
+      return {l:'          '+ch, hk:null, v26:cogsAnn, mon26:_wSim.prodCogsByCh?.[ch]||null, cls:'r-unit-ch', derived:true, unitLabel:'백만',
+        bu:{cu:_wSim.chCU?.[ch]||0, capa:_capaChAnn[ch]||0}};
+    });
+    const _chMgmtRows2 = _wSim.activeChannels.map(ch => {
+      const mgmtAnn = Math.round((_wSim.관리수수료[ch]||[]).reduce((a,b)=>a+b,0));
+      const actAnn = Math.round((_wSim.active[ch]||[]).reduce((a,b)=>a+b,0)/12);
+      return {l:'          '+ch, hk:null, v26:mgmtAnn, mon26:_wSim.관리수수료[ch]?.map(v=>Math.round(v))||null, cls:'r-unit-ch', derived:true, unitLabel:'백만',
+        bu:{fee:_wSim.fee?.[ch]||0, active:actAnn}};
+    });
     rows26E=[
       {l:'I. 매출',                  hk:'rev',   v26:s.tot.rev_ann,                    mon26:s.tot.rev_mon.slice(),                 cls:'r-tot'},
       {l:'  통신 매출',               hk:null,    v26:s.tel.rev_ann,                    mon26:s.tel.rev_mon,                        cls:'r-sub'},
       {l:'    상품매출',              hk:'prod',  v26:s.tel.prod_ann,                   mon26:s.tel.prod_mon,                       lnk:true, cls:'r-sub2'},
-      {l:'      └ 대당매출(가중평균)',hk:null,    v26:_unitCalc(s.tel.prod_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
-      {l:'        채널별 대당매출',    hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
-      ...W_CH_NO_IOT.map(ch => ({l:'          '+ch, hk:null, v26:_wSim.chPU?.[ch]||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'})),
-      {l:'        채널별 상품매출',    hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      {l:'      └ 대당매출(가중평균)',hk:null,    v26:_unitCalc(s.tel.prod_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건',
+        bu:{desc:`CAPA ${(_capaNoIoT/10000).toFixed(1)}만건 기준`}},
+      {l:'        채널별 상품매출 바텀업 (PU×CAPA)', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
       ..._chProdRows2,
       {l:'    수수료수입',            hk:null,    v26:s.tel.comm_ann,                   mon26:s.tel.comm_mon,                       cls:'r-sub2'},
       {l:'      정책수수료',          hk:'pol',   v26:s.tel.pol_ann+Math.round(PD.pol.ann), mon26:s.tel.pol_mon.map((v,m)=>v+(PD.pol.mon[m]||0)), lnk:true, cls:'r-sub3'},
       {l:'        └ 무선 건당정책',    hk:null,   v26:_unitCalc(s._drv?.w_pol_total||0, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'        └ 유선 건당정책',    hk:null,   v26:(s._drv?.wl_net_total||0)>0?Math.round((s._drv?.wl_pol_ann||0)*1e6/(s._drv.wl_net_total)):0, mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'      관리수수료',          hk:'mgmt',  v26:s.tel.mgmt_ann,                   mon26:s.tel.mgmt_mon,                       lnk:true, cls:'r-sub3'},
-      {l:'        무선 채널별 관리수수료', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      {l:'        무선 바텀업 (활성×수수료단가)', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
       ..._chMgmtRows2,
-      {l:'        유선 채널별 관리수수료', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      {l:'        유선 채널별 바텀업', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
       ...(s._drv?.wl_mgmt_chs||[]).map(ch => ({l:'          '+ch, hk:null, v26:Math.round((s._drv?.wl_mgmt_by_ch?.[ch]||0)), mon26:s._drv?.wl_mgmt_mon_by_ch?.[ch]||null, cls:'r-unit-ch', derived:true, unitLabel:'백만'})),
       {l:'      기타수수료',          hk:'etc',   v26:s.tel.etc_ann+Math.round(PD.etc.ann), mon26:s.tel.etc_mon.map((v,m)=>v+(PD.etc.mon[m]||0)), lnk:true, cls:'r-sub3'},
       {l:'  유통플랫폼 매출',         hk:null,    v26:s.dist.rev_ann,                   mon26:s.dist.rev_mon,                       cls:'r-sub'},
       {l:'II. 매출원가',              hk:'cogs',  v26:s.tot.rev_ann-s.tot.gp_ann,       mon26:s.tot.cogs_mon.slice(),               lnk:true, cls:'r-tot'},
-      {l:'    └ 대당원가(가중평균)',   hk:null,    v26:_unitCalc(s.tot.rev_ann-s.tot.gp_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
-      {l:'      채널별 대당원가',      hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
-      ...W_CH_NO_IOT.map(ch => ({l:'          '+ch, hk:null, v26:_wSim.chCU?.[ch]||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'})),
-      {l:'      채널별 매출원가',      hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      {l:'    └ 대당원가(가중평균)',   hk:null,    v26:_unitCalc(s.tot.rev_ann-s.tot.gp_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건',
+        bu:{desc:`CAPA ${(_capaNoIoT/10000).toFixed(1)}만건 기준`}},
+      {l:'      채널별 매출원가 바텀업 (CU×CAPA)', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
       ..._chCogRows2,
       {l:'III. 매출총이익',           hk:'gp',    v26:s.tot.gp_ann,                     mon26:s.tot.gp_mon.slice(),                 cls:'r-gp'},
       {l:'IV. 판관비',                hk:'sga',   v26:s.tot.sga_ann,                    mon26:s.tot.sga_mon.slice(),                cls:'r-sga'},
       {l:'  인건비',                  hk:'labor', v26:s.tot.labor_ann,                  mon26:s.tot.labor_mon||s.tel.labor_mon,     lnk:true, cls:'r-sub'},
-      {l:'    └ 인당인건비(전사)',    hk:null,    v26:Math.round(s.tot.labor_ann/_hcAvg*100)/100, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
+      {l:'    └ 인당인건비(전사)',    hk:null,    v26:Math.round(s.tot.labor_ann/_hcAvg*100)/100, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년',
+        bu:{desc:`인원 ${Math.round(_hcAvg)}명 기준`},
+        hist:[Math.round(H_TOT.labor[0]/(LB_HIST?.hc_total?.[0]||2125)*100)/100, Math.round(H_TOT.labor[1]/(LB_HIST?.hc_total?.[1]||2107)*100)/100, Math.round(H_TOT.labor[2]/(LB_HIST?.hc_total?.[2]||2102)*100)/100, Math.round(H_TOT.labor[3]/(LB_HIST?.hc_total?.[3]||2193)*100)/100]},
       {l:'    통신 인건비 소계',      hk:null,    v26:s.tel.labor_ann,                  mon26:s.tel.labor_mon,                      cls:'r-sub2'},
       {l:'      일반직 급여',         hk:null,    v26:_lb2GenAnn,                       mon26:lb2.gen_mon,                          cls:'r-sub3', lnk:true},
-      {l:'        └ 일반직 인당연봉', hk:null,   v26:lb2.gen_hc>0?Math.round(_lb2GenAnn/lb2.gen_hc*10)/10:0, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
+      {l:'        └ 일반직 인당연봉', hk:null,   v26:lb2.gen_hc>0?Math.round(_lb2GenAnn/lb2.gen_hc*10)/10:0, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년',
+        bu:{desc:`${lb2.gen_hc}명`}},
       {l:'      영업직군 급여',       hk:null,    v26:_lb2SalAnn,                       mon26:lb2.sal_mon,                          cls:'r-sub3', lnk:true},
-      {l:'        └ 영업직 인당연봉', hk:null,   v26:lb2.sal_hc>0?Math.round(_lb2SalAnn/lb2.sal_hc*10)/10:0, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
+      {l:'        └ 영업직 인당연봉', hk:null,   v26:lb2.sal_hc>0?Math.round(_lb2SalAnn/lb2.sal_hc*10)/10:0, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년',
+        bu:{desc:`${lb2.sal_hc}명`}},
       {l:'      특별격려금',          hk:null,    v26:lb2.bonus_ann,                    mon26:lb2.bonus_arr,                        cls:'r-sub3'},
       {l:'      포상비',              hk:null,    v26:lb2.reward_ann,                   mon26:lb2.reward_arr,                       cls:'r-sub3'},
       {l:'      퇴직급여충당금',      hk:null,    v26:lb2.retire_ann,                   mon26:lb2.retire_arr,                       cls:'r-sub3'},
@@ -13545,7 +13593,8 @@ function renderPL(){
       {l:'      광고선전비',          hk:'adv',   v26:s.tel.adv_ann,                    mon26:s.tel.adv_mon,                        lnk:true, cls:'r-sub3'},
       {l:'    유통플랫폼 마케팅',     hk:null,    v26:s.tot.dist_mkt_ann||0,            mon26:s.tot.dist_mkt_mon||null,             cls:'r-sub2'},
       {l:'  임차관리비',              hk:'rent',  v26:s.tot.rent_ann,                   mon26:s.tot.rent_mon,                       lnk:true, cls:'r-sub'},
-      {l:'    └ 점당 관리비',         hk:null,    v26:ifr2.mgmt_per_store||0, mon26:null, cls:'r-unit', derived:true, unitLabel:'원/점·월'},
+      {l:'    └ 점당 관리비',         hk:null,    v26:ifr2.mgmt_per_store||0, mon26:null, cls:'r-unit', derived:true, unitLabel:'원/점·월',
+        bu:{desc:`관리비 ÷ 매장 ${Math.round((ifr2.sr26m||[]).reduce((a,b)=>a+b,0)/12)||257}점`}},
       {l:'    통신 임차(건물+광열)',   hk:null,    v26:s.tel.rent_ann,                   mon26:s.tel.rent_mon,                       cls:'r-sub2'},
       {l:'      건물임차료',          hk:null,    v26:ifr2.building_ann,                mon26:ifr2.building_mon,                    cls:'r-sub3',lnk:true},
       {l:'      수도광열비',          hk:null,    v26:ifr2.util_ann,                    mon26:ifr2.util_mon,                        cls:'r-sub3',lnk:true},
@@ -18770,7 +18819,7 @@ function renderDEP(){
   })();
 
   // 메트릭
-  const yoy=(_depAnnForDisplay-_depPrev)/_depPrev;
+  const yoy=_depPrev?(_depAnnForDisplay-_depPrev)/_depPrev:0;
   const capex_to_dep = s.total_capex?s.total_ann/s.total_capex:0;
   const met=[
     {lb:'감가상각비 합계',   vl:fmtD(Math.round(_depAnnForDisplay)),  ch:`YoY ${fmtP(yoy)}`,                              cl:'var(--ac2)'},
@@ -23717,13 +23766,26 @@ function _updateSegBadge(){
 }
 
 function navToTab(tabName){
-  // 메인 탭 전환 (switchMain과 동일하되 event 없이 직접 처리)
+  // ★ v99: 그룹 동기화 — 🔗 링크로 다른 그룹 탭 이동 시 상단 그룹 탭도 변경
+  const _navGroupMap={
+    dashboard:'dashboard', pl:'edit',
+    wireless:'edit', wireline:'edit', labor:'edit', infra:'edit',
+    depre:'edit', opex:'edit', etcfee:'edit', distplatform:'edit', monthly26:'edit',
+    ref_sheets:'report', midterm:'report', monthly_track:'report',
+    plan_vs_actual:'report', exec_report:'report', verify:'report',
+    f27_upload:'forecast27', f27_merged26:'forecast27', f27_forecast:'forecast27',
+    settings:'settings'
+  };
+  const _targetGroup = _navGroupMap[tabName];
+  if(_targetGroup && _targetGroup !== _mainGroup) switchGroup(_targetGroup);
+  // 메인 탭 전환
   document.querySelectorAll('.main-tab').forEach(t=>t.classList.remove('active'));
   const btn=document.querySelector(`.main-tab[onclick*="'${tabName}'"]`);
   if(btn) btn.classList.add('active');
   document.querySelectorAll('.sheet').forEach(s=>{ s.classList.remove('active'); s.style.display='none'; });
   const sheet=document.getElementById('sheet_'+tabName);
   if(sheet){ sheet.classList.add('active'); sheet.style.display='block'; }
+  syncSecondaryActive(tabName);
   // 탭별 렌더 실행
   const renders={wireless:renderWireless,wireline:renderWireline,labor:renderLB,
     infra:renderIF,depre:renderDEP,opex:renderOX,etcfee:renderEF,distplatform:renderDP};
