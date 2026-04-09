@@ -7710,6 +7710,12 @@ function renderF27Merged26(){
   // 탭별 뷰
   const viewTab=window._f27m26View||'pl';
 
+  // ★ 드라이버 탭은 별도 렌더
+  if(viewTab==='wire')       { el.innerHTML = f26RenderWireDrivers(); return; }
+  if(viewTab==='labor_infra'){ el.innerHTML = f26RenderLaborInfra(); return; }
+  if(viewTab==='etcfee')     { el.innerHTML = f26RenderEtcFee(); return; }
+  if(viewTab==='narrative')  { el.innerHTML = f26RenderNarrative(); return; }
+
   // ★ 시뮬 사유 생성 헬퍼
   function _simReason(key){
     if(lastM<0) return '계획값 그대로';
@@ -7727,11 +7733,17 @@ function renderF27Merged26(){
     return nAct+'월 BM실적 기반 '+(scale>1?'+':'')+pct+'% 스케일팩터';
   }
 
+  // ★ 대당/인당 지표 계산 참조값
+  const _wCapa26 = 670000, _wlNet26 = 170000, _totalCapa26 = _wCapa26 + _wlNet26;
+  const _hc26 = (LB_UNIT_HIST.hc_total&&LB_UNIT_HIST.hc_total['2026E']) ? LB_UNIT_HIST.hc_total['2026E'].reduce((a,b)=>a+b,0)/12 : 2135;
+
   const rowSets={
     pl:[
       {key:'rev',   label:'매출',        bold:true},
+      {key:'_u_rev',label:'    ↳ 대당매출', unit:true, dim:true, baseKey:'rev', divBy:_totalCapa26, unitLabel:'원/건', logic:'매출÷CAPA'},
       {key:'prod',  label:'  상품매출',   indent:1},
       {key:'pol',   label:'  정책수수료', indent:1,dim:true},
+      {key:'_u_pol',label:'    ↳ 대당정책', unit:true, dim:true, baseKey:'pol', divBy:_wCapa26, unitLabel:'원/건', logic:'정책÷무선CAPA'},
       {key:'mgmt',  label:'  관리수수료', indent:1,dim:true},
       {key:'etc',   label:'  기타수수료', indent:1,dim:true},
       {sep:true},
@@ -7739,11 +7751,13 @@ function renderF27Merged26(){
       {key:'gp',    label:'매출총이익',   bold:true,lineTop:true},
       {sep:true},
       {key:'labor', label:'인건비',       bold:true},
+      {key:'_u_labor',label:'    ↳ 인당인건비', unit:true, dim:true, baseKey:'labor', divBy:_hc26, unitLabel:'백만/인', logic:'인건비÷인원'},
       {key:'lb_gen',label:'  일반직급여', indent:1,dim:true},
       {key:'lb_sal',label:'  영업직급여', indent:1,dim:true},
       {key:'lb_ret',label:'  퇴직급여',   indent:1,dim:true},
       {key:'lb_wel',label:'  복리후생비', indent:1,dim:true},
       {key:'mkt',   label:'마케팅비용',   bold:true},
+      {key:'_u_mkt',label:'    ↳ 대당마케팅', unit:true, dim:true, baseKey:'mkt', divBy:_totalCapa26, unitLabel:'원/건', logic:'마케팅÷CAPA'},
       {key:'sc',    label:'  판매수수료', indent:1,dim:true},
       {key:'sp',    label:'  판촉비',     indent:1,dim:true},
       {key:'rent',  label:'임차관리비'},
@@ -7751,6 +7765,7 @@ function renderF27Merged26(){
       {key:'opex',  label:'기타운영비',   bold:true},
       {sep:true},
       {key:'op',    label:'영업이익',     bold:true,highlight:true},
+      {key:'_u_op', label:'    ↳ 대당영업이익', unit:true, dim:true, baseKey:'op', divBy:_totalCapa26, unitLabel:'원/건', logic:'OP÷CAPA'},
     ],
     dist:[
       {key:'dist_rev',   label:'유통 매출',     bold:true},
@@ -7799,27 +7814,91 @@ function renderF27Merged26(){
 
   const th='padding:7px 10px;border:1px solid #dde3ee;font-weight:700;font-size:10.5px;color:#64748b;background:#f8fafc;text-align:center;white-space:nowrap;position:sticky;top:0;z-index:3';
 
+  // ★ KPI 요약 카드 (27E와 동일 구조)
+  const _mAnn=(key)=>{ const mon=m[key]||Array(12).fill(0); return mon.reduce((s,v)=>s+v,0); };
+  const rev26=_mAnn('rev'), op26=_mAnn('op'), distRev26=_mAnn('dist_rev'), distOp26=_mAnn('dist_op');
+  const labor26=_mAnn('labor');
+  const opm26=rev26?(op26/rev26*100).toFixed(2):'0.00';
+  const opm26plan=(PLAN_2026_FULL.op.ann/PLAN_2026_FULL.rev.ann*100).toFixed(2);
+  const distOpm26=distRev26?(distOp26/distRev26*100).toFixed(1):'0.0';
+  const distOpm26plan=(PLAN_DIST_FULL.op.ann/PLAN_DIST_FULL.rev.ann*100).toFixed(1);
+  const puRev26=_totalCapa26?Math.round(rev26/_totalCapa26*1e6):0;
+  const puOp26=_totalCapa26?Math.round(op26/_totalCapa26*1e6):0;
+  const ppLabor26=_hc26?Math.round(labor26/_hc26*10)/10:0;
+
+  const summaryCards26=[
+    {label:'26E 전사매출',val:rev26,ref:PLAN_2026_FULL.rev.ann},
+    {label:'26E 영업이익',val:op26,ref:PLAN_2026_FULL.op.ann,profit:true},
+    {label:'OPM',val:opm26+'%',ref:opm26plan+'%',nofmt:true,profit:true,pct:true,v:parseFloat(opm26),r:parseFloat(opm26plan)},
+    {label:'대당매출',val:puRev26,ref:708268,nofmt:true,unitLabel:'원/건'},
+    {label:'인당인건비',val:ppLabor26,ref:69.1,nofmt:true,unitLabel:'백만/인'},
+    {label:'실적반영',val:lastM>=0?(lastM+1)+'월까지':'없음',ref:'',nofmt:true,str:true},
+  ];
+
   let html=`
 <div style="max-width:1500px;margin:0 auto">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
     <div style="font-weight:800;font-size:15px;color:#111827">📊 26년 합산 손익계산서</div>
     ${simBadge}
     <div style="font-size:11px;color:#9ca3af">셀 클릭 → 실적 직접 입력</div>
-    <div style="margin-left:auto;display:flex;gap:6px">
-      ${['pl','dist','opex'].map(t=>'<button onclick="window._f27m26View=\''+t+'\';renderF27Merged26()" style="padding:5px 12px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;'+(viewTab===t?'background:#111827;color:#fff;border:none':'background:#fff;color:#374151;border:1px solid #dde3ee')+'">'+{pl:'전사 P&L',dist:'유통플랫폼',opex:'기타운영비'}[t]+'</button>').join('')}
+    <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+      ${['pl','dist','opex','wire','labor_infra','etcfee','narrative'].map(t=>'<button onclick="window._f27m26View=\''+t+'\';renderF27Merged26()" style="padding:5px 12px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;'+(viewTab===t?'background:#111827;color:#fff;border:none':'background:#fff;color:#374151;border:1px solid #dde3ee')+'">'+{pl:'전사 P&L',dist:'유통플랫폼',opex:'기타운영비',wire:'📱 무선 드라이버',labor_infra:'👥 인건비·인프라',etcfee:'📦 기타수수료',narrative:'📝 계획 근거'}[t]+'</button>').join('')}
       <button onclick="switchMain('f27_forecast')" style="padding:5px 14px;background:#e4002b;color:#fff;border:none;border-radius:6px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">🔮 27년 예측 →</button>
     </div>
   </div>
+
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px">
+    ${summaryCards26.map(c=>{
+      const yoy=c.pct?((c.v-c.r)):c.nofmt?0:((c.val-c.ref)/Math.abs(c.ref)*100);
+      const color=c.profit?(parseFloat(c.pct?c.v:c.val)>parseFloat(c.pct?c.r:c.ref)?'#059669':'#dc2626')
+        :(c.str?'#7c3aed':c.unitLabel?'#1d4ed8':Math.abs(yoy)<3?'#374151':yoy>0?'#d97706':'#059669');
+      return '<div style="background:#fff;border:1px solid #dde3ee;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(15,23,42,.04)">'
+        +'<div style="font-size:10px;color:#9ca3af;margin-bottom:4px">'+c.label+'</div>'
+        +'<div style="font-size:16px;font-weight:800;color:#111827">'+(c.nofmt?c.val:Math.round(c.val).toLocaleString('ko-KR'))
+        +(c.unitLabel?'<span style="font-size:10px;color:#6b7280;font-weight:400"> '+c.unitLabel+'</span>':(c.nofmt?'':'<span style="font-size:11px;color:#6b7280;font-weight:400"> 백만원</span>'))+'</div>'
+        +(!c.nofmt&&!c.str?'<div style="font-size:11px;color:'+color+';margin-top:2px">'+(yoy>=0?'+':'')+yoy.toFixed(1)+'% vs계획</div>':'')
+        +(c.pct?'<div style="font-size:11px;color:'+color+';margin-top:2px">'+(c.v-c.r>=0?'+':'')+(c.v-c.r).toFixed(2)+'pp vs계획</div>':'')
+        +(c.unitLabel&&c.ref?'<div style="font-size:10px;color:#9ca3af;margin-top:2px">계획 '+Math.round(c.ref).toLocaleString('ko-KR')+'</div>':'')
+        +'</div>';
+    }).join('')}
+  </div>
+
   <div class="tbl-freeze" style="max-height:72vh"><table style="width:100%;border-collapse:separate;border-spacing:0;font-size:11.5px;white-space:nowrap">
   <thead><tr>
-    <th style="${th};text-align:left;min-width:150px;position:sticky;left:0;z-index:4">항목 (백만원)</th>
+    <th style="${th};text-align:left;min-width:155px;position:sticky;left:0;z-index:4">항목 (백만원)</th>
+    <th style="${th};font-size:9px;color:#9ca3af;min-width:75px">시뮬 사유</th>
     <th style="${th}">연간합산</th><th style="${th}">계획연간</th><th style="${th}">차이</th>
-    <th style="${th};min-width:160px;text-align:left;color:#6366f1">시뮬 사유</th>
     ${MO.map((mo,i)=>'<th style="'+th+';'+(i<=lastM?'background:#f0fdf4;color:#059669':i<=lastM+1&&lastM>=0?'background:#eff6ff;color:#1d4ed8':'')+'">'+mo+(i<=lastM?'<br><small style="font-size:9px">실</small>':lastM>=0&&i>lastM?'<br><small style="font-size:9px;color:#1d4ed8">시뮬</small>':'')+'</th>').join('')}
   </tr></thead><tbody>`;
 
   rows.forEach(row=>{
-    if(row.sep){html+='<tr><td colspan="17" style="height:4px;background:#f8fafc;border:none"></td></tr>';return;}
+    if(row.sep){html+='<tr><td colspan="18" style="height:4px;background:#f8fafc;border:none"></td></tr>';return;}
+
+    // ★ 대당/인당 파생 지표 행
+    if(row.unit){
+      const bk=row.baseKey;
+      const bMon=m[bk]||Array(12).fill(0);
+      const bAnn=bMon.reduce((s,v)=>s+v,0);
+      const uAnn=row.divBy?Math.round(bAnn/row.divBy*1e6):0;
+      const plan=f27GetPlan26(bk);
+      const planAnn=plan?plan.ann:0;
+      const uPlan=row.divBy?Math.round(planAnn/row.divBy*1e6):0;
+      const uDiff=uAnn-uPlan;
+      const uFmt=v=>v?Math.round(v).toLocaleString('ko-KR'):'0';
+      html+=`<tr style="background:#faf5ff">
+        <td style="border:1px solid #eef2f7;padding:3px 12px;padding-left:36px;color:#8b5cf6;font-size:10.5px;font-weight:500;position:sticky;left:0;background:#faf5ff;z-index:1">${row.label}</td>
+        <td style="border:1px solid #eef2f7;padding:3px 8px;font-size:9px;color:#a78bfa;text-align:center">${row.logic||''}</td>
+        <td style="border:1px solid #eef2f7;padding:3px 10px;text-align:right;font-size:10.5px;color:#7c3aed;font-weight:600">${uFmt(uAnn)}<span style="font-size:8.5px;color:#a78bfa;margin-left:2px">${row.unitLabel}</span></td>
+        <td style="border:1px solid #eef2f7;padding:3px 10px;text-align:right;color:#a78bfa;font-size:10.5px">${uFmt(uPlan)}</td>
+        <td style="border:1px solid #eef2f7;padding:3px 10px;text-align:right;color:${uDiff>=0?'#059669':'#dc2626'};font-size:10.5px;font-weight:600">${uDiff>=0?'+':''}${uFmt(uDiff)}</td>
+        ${bMon.map((v,i)=>{
+          var uv=row.divBy?Math.round(v/row.divBy*1e6):0;
+          return '<td style="border:1px solid #eef2f7;padding:3px 8px;text-align:right;font-size:10px;color:#8b5cf6;background:#faf5ff">'+uFmt(uv)+'</td>';
+        }).join('')}
+      </tr>`;
+      return;
+    }
+
     const mon=m[row.key]||Array(12).fill(0);
     const ann=mon.reduce((s,v)=>s+v,0);
     const plan=f27GetPlan26(row.key);
@@ -7838,10 +7917,10 @@ function renderF27Merged26(){
 
     html+=`<tr style="${rb}">
       <td style="border:1px solid #eef2f7;padding:4px 12px;${row.dim?'color:#9ca3af':''};font-weight:${row.bold?700:500};${row.indent?'padding-left:'+(12+row.indent*14)+'px':''};position:sticky;left:0;background:${row.highlight?'rgba(228,0,43,.04)':row.bold?'#fafafa':'#fff'};z-index:1">${row.label}</td>
+      <td style="border:1px solid #eef2f7;padding:4px 8px;font-size:9px;color:#6366f1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px" title="${reason}">${reason}</td>
       <td style="${td};font-weight:${row.bold?700:500};color:${isProfit?(ann>=0?'#059669':'#dc2626'):'#111827'}">${f27Fmt(ann)}</td>
       <td style="${td};color:#9ca3af">${f27Fmt(planAnn)}</td>
       <td class="${planAnn?cfClass((diff/Math.abs(planAnn))*100):''}" style="${td};color:${Math.abs(diff)<50?'#059669':diff>0?'#d97706':'#dc2626'};font-weight:600">${diff===0?'-':(diff>0?'+':'')+f27Fmt(diff)}</td>
-      <td style="border:1px solid #eef2f7;padding:4px 8px;font-size:9.5px;color:#6366f1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px" title="${reason}">${reason}</td>
       ${mon.map((v,i)=>{
         const isAct=i<=lastM;
         const isSim=lastM>=0&&i>lastM;
@@ -7850,12 +7929,443 @@ function renderF27Merged26(){
     </tr>`;
   });
 
-  html+='</tbody></table></div></div>';
+  html+='</tbody></table></div>'
+    +'<div style="margin-top:8px;font-size:10px;color:#9ca3af;text-align:right">'
+    +'OPM 26E: '+opm26+'% (계획 '+opm26plan+'%) | 유통OPM: '+distOpm26+'% | 대당매출: '+puRev26.toLocaleString('ko-KR')+'원 | 인당인건비: '+ppLabor26.toFixed(1)+'백만 | 단위: 백만원</div></div>';
   el.innerHTML=html;
   // ★ 다중선택 바인딩
   var tbl26=el.querySelector('table');
   if(tbl26) f27BindSelection(tbl26,'26e');
 }
+
+
+// ============================================================
+// 26E 탭 버튼 공통 렌더
+// ============================================================
+function _f26TabBtns(activeTab){
+  var TABS={pl:'전사 P&L',dist:'유통플랫폼',opex:'기타운영비',wire:'📱 무선 드라이버',labor_infra:'👥 인건비·인프라',etcfee:'📦 기타수수료',narrative:'📝 계획 근거'};
+  return Object.entries(TABS).map(function(e){
+    var t=e[0],label=e[1];
+    return '<button onclick="window._f27m26View=''+t+'';renderF27Merged26()" style="padding:5px 12px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;'
+    +(t===activeTab?'background:#111827;color:#fff;border:none':'background:#fff;color:#374151;border:1px solid #dde3ee')+'">'
+    +label+'</button>';
+  }).join('');
+}
+
+// ============================================================
+// 📱 26E 무선 드라이버 — CAPA/대당단가 현황
+// ============================================================
+function f26RenderWireDrivers(){
+  if(!F27.merged26) f27ComputeMerged26();
+  var m = F27.merged26;
+  var _mAnn = function(k){ return (m[k]||[]).reduce(function(s,v){return s+v;},0); };
+  var fmt = function(v){ return Math.round(v||0).toLocaleString('ko-KR'); };
+  var th = 'padding:6px 10px;border:1px solid #dde3ee;font-weight:700;font-size:10.5px;background:#f8fafc;color:#64748b;text-align:center';
+  var td = 'border:1px solid #eef2f7;padding:4px 8px;text-align:right;font-size:11px';
+
+  var CAPA25 = {도매:290855,소매:196898,소상공인:1938,디지털:125728,기업:9627,Biz:17324,IoT:72551};
+  var CAPA26 = {도매:291731,소매:206259,소상공인:2073,디지털:137972,기업:12013,Biz:19951,IoT:82221};
+  var tot25 = Object.values(CAPA25).reduce(function(a,b){return a+b;},0);
+  var tot26 = Object.values(CAPA26).reduce(function(a,b){return a+b;},0);
+  var tot25noIoT = tot25 - CAPA25.IoT;
+  var tot26noIoT = tot26 - CAPA26.IoT;
+
+  var UNIT26 = {prod:708268, cogs:760673, pol:247338};
+  var UNIT25 = {prod:685000, cogs:740000, pol:235000};
+
+  var FEE26 = {도매:5100,소매:2635,소상공인:2125,디지털:4734,기업:3740,Biz:2125};
+  var FEE25 = {도매:4800,소매:2550,소상공인:2050,디지털:4500,기업:3500,Biz:2050};
+  var ACT26 = {도매:40000,소매:748000,소상공인:20300,디지털:62000,기업:44500,Biz:82000};
+  var CHURN = {도매:.05,소매:.037,소상공인:.026,디지털:.02,기업:.023,Biz:.021};
+
+  var fc_prod = _mAnn('prod'), fc_pol = _mAnn('pol'), fc_mgmt = _mAnn('mgmt');
+
+  var tabBtns = _f26TabBtns('wire');
+  var capaRows = Object.keys(CAPA26).map(function(ch){
+    var v25=CAPA25[ch]||0, v26=CAPA26[ch]||0;
+    var gr=v25?((v26/v25-1)*100).toFixed(1)+'%':'—';
+    return '<tr><td style="'+td+';text-align:left">'+ch+'</td>'
+      +'<td style="'+td+';color:var(--t3)">'+fmt(v25)+'</td>'
+      +'<td style="'+td+';font-weight:700">'+fmt(v26)+'</td>'
+      +'<td style="'+td+';color:'+(v26>=v25?'#059669':'#dc2626')+'">'+(v26>=v25?'+':'')+gr+'</td></tr>';
+  }).join('');
+  capaRows += '<tr style="background:#f8fafc;font-weight:700"><td style="'+td+';text-align:left">합계(비IoT)</td>'
+    +'<td style="'+td+';color:var(--t3)">'+fmt(tot25noIoT)+'</td>'
+    +'<td style="'+td+';font-weight:800">'+fmt(tot26noIoT)+'</td>'
+    +'<td style="'+td+';color:#059669">+'+((tot26noIoT/tot25noIoT-1)*100).toFixed(1)+'%</td></tr>';
+  capaRows += '<tr style="background:#eff6ff;font-weight:700"><td style="'+td+';text-align:left">총합계</td>'
+    +'<td style="'+td+';color:var(--t3)">'+fmt(tot25)+'</td>'
+    +'<td style="'+td+';font-weight:800;color:#1d4ed8">'+fmt(tot26)+'</td>'
+    +'<td style="'+td+';color:#059669">+'+((tot26/tot25-1)*100).toFixed(1)+'%</td></tr>';
+
+  var unitRows = [
+    ['대당매출(원/건)', UNIT25.prod, UNIT26.prod],
+    ['대당원가(원/건)', UNIT25.cogs, UNIT26.cogs],
+    ['대당정책(원/건)', UNIT25.pol, UNIT26.pol],
+  ].map(function(r){
+    var d=r[2]-r[1]; var pct=r[1]?((d/r[1])*100).toFixed(1)+'%':'—';
+    return '<tr><td style="'+td+';text-align:left">'+r[0]+'</td>'
+      +'<td style="'+td+';color:var(--t3)">'+fmt(r[1])+'</td>'
+      +'<td style="'+td+';font-weight:700">'+fmt(r[2])+'</td>'
+      +'<td style="'+td+';color:'+(d>=0?'#d97706':'#059669')+'">'+(d>=0?'+':'')+fmt(d)+' ('+pct+')</td></tr>';
+  }).join('');
+
+  var feeRows = Object.keys(FEE26).map(function(ch){
+    var v25=FEE25[ch]||0, v26=FEE26[ch]||0;
+    var act=ACT26[ch]||0; var mgmt26=Math.round(act*v26*12/1e6);
+    return '<tr><td style="'+td+';text-align:left">'+ch+'</td>'
+      +'<td style="'+td+';color:var(--t3)">'+fmt(v25)+'</td>'
+      +'<td style="'+td+';font-weight:700">'+fmt(v26)+'</td>'
+      +'<td style="'+td+'">'+fmt(act)+'</td>'
+      +'<td style="'+td+';color:var(--t3)">'+fmt(CHURN[ch]*100)+'%</td>'
+      +'<td style="'+td+';font-weight:600">'+fmt(mgmt26)+'</td></tr>';
+  }).join('');
+
+  return '<div style="max-width:1400px;margin:0 auto">'
+  +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">'+tabBtns+'</div>'
+  +'<div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:11px">'
+  +'📌 <b>P&L 연동값</b> — 상품매출 26E: <b>'+fmt(fc_prod)+'</b>백만 / 관리수수료: <b>'+fmt(fc_mgmt)+'</b>백만 / 정책수수료: <b>'+fmt(fc_pol)+'</b>백만'
+  +'<span style="color:var(--t3);margin-left:8px">BM실적 반영시 자동 갱신</span></div>'
+  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'
+  +'<div class="card" style="padding:14px">'
+  +'<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px">📱 채널별 CAPA 현황 (26E 계획)</div>'
+  +'<table class="tbl" style="font-size:11px;width:100%"><thead><tr>'
+  +'<th style="'+th+';text-align:left;min-width:80px">채널</th>'
+  +'<th style="'+th+'">25년</th><th style="'+th+';color:#1d4ed8">26E</th><th style="'+th+'">YoY</th></tr></thead>'
+  +'<tbody>'+capaRows+'</tbody></table></div>'
+  +'<div class="card" style="padding:14px">'
+  +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">💰 대당 단가 현황</div>'
+  +'<table class="tbl" style="font-size:11px;width:100%"><thead><tr>'
+  +'<th style="'+th+';text-align:left">항목</th><th style="'+th+'">25년</th><th style="'+th+';color:#1d4ed8">26E</th><th style="'+th+'">증감</th></tr></thead>'
+  +'<tbody>'+unitRows+'</tbody></table></div></div>'
+  +'<div class="card" style="padding:14px">'
+  +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">🏷 관리수수료 드라이버 (Active×단가×12)</div>'
+  +'<table class="tbl" style="font-size:11px;width:100%"><thead><tr>'
+  +'<th style="'+th+';text-align:left">채널</th><th style="'+th+'">25 단가</th><th style="'+th+';color:#1d4ed8">26E 단가</th>'
+  +'<th style="'+th+'">Active(건)</th><th style="'+th+'">해지율</th><th style="'+th+'">연간수수료(백만)</th></tr></thead>'
+  +'<tbody>'+feeRows+'</tbody></table></div></div>';
+}
+
+// ============================================================
+// 👥 26E 인건비·인프라 현황
+// ============================================================
+function f26RenderLaborInfra(){
+  if(!F27.merged26) f27ComputeMerged26();
+  var m = F27.merged26;
+  var _mAnn = function(k){ return (m[k]||[]).reduce(function(s,v){return s+v;},0); };
+  var fmt = function(v){ return Math.round(v||0).toLocaleString('ko-KR'); };
+  var th = 'padding:6px 10px;border:1px solid #dde3ee;font-weight:700;font-size:10.5px;background:#f8fafc;color:#64748b;text-align:center';
+  var td = 'border:1px solid #eef2f7;padding:4px 8px;text-align:right;font-size:11px';
+
+  var lb26 = _mAnn('labor'), lb_gen26 = _mAnn('lb_gen'), lb_sal26 = _mAnn('lb_sal');
+  var lb_ret26 = _mAnn('lb_ret'), lb_wel26 = _mAnn('lb_wel');
+  var lb_rew26 = _mAnn('lb_rew'), lb_inc26 = _mAnn('lb_inc');
+  var rent26 = _mAnn('rent'), dep26 = _mAnn('dep');
+  var dist_dep26 = _mAnn('dist_dep');
+
+  var LB25 = {gen:17537,sal:75411,ret:10264,wel:33976,rew:699,inc:10907,total:140784};
+  var LB24 = {gen:16800,sal:72000,ret:9800,wel:32500,rew:650,inc:10200,total:133600};
+
+  var lb_rows = [
+    {l:'일반직 급여(백만)',   v24:LB24.gen, v25:LB25.gen, v26:lb_gen26},
+    {l:'영업직급여(백만)',    v24:LB24.sal, v25:LB25.sal, v26:lb_sal26},
+    {l:'퇴직급여(백만)',      v24:LB24.ret, v25:LB25.ret, v26:lb_ret26},
+    {l:'복리후생비(백만)',     v24:LB24.wel, v25:LB25.wel, v26:lb_wel26},
+    {l:'포상비(백만)',        v24:LB24.rew, v25:LB25.rew, v26:lb_rew26},
+    {l:'마케팅 인센티브(백만)',v24:LB24.inc, v25:LB25.inc, v26:lb_inc26},
+    {sep:true},
+    {l:'인건비 합계(백만)',    v24:LB24.total, v25:LB25.total, v26:lb26, bold:true, highlight:true},
+  ];
+
+  var gen_hc=195, sal_hc=1940, hc_total=gen_hc+sal_hc;
+  var gen_ipp26=lb_gen26/Math.max(gen_hc,1);
+  var sal_ipp26=lb_sal26/Math.max(sal_hc,1);
+  var ppLabor26=lb26/Math.max(hc_total,1);
+
+  var IF26={stores:258,rent_per:5,mgmt_per:654879,car:2049,oa:1001,util:896};
+  var IF25={stores:250,rent_per:5,mgmt_per:640000,car:1950,oa:960,util:870};
+
+  var mkRow = function(r){
+    if(r.sep) return '<tr><td colspan="5" style="height:3px;background:#f8fafc;border:none"></td></tr>';
+    var diff=(r.v26||0)-(r.v25||0);
+    var pct=r.v25?((diff/Math.abs(r.v25))*100).toFixed(1)+'%':'—';
+    var fv=function(v){return typeof v==='number'&&Math.abs(v)<1000?v.toFixed(1):fmt(Math.round(v||0));};
+    return '<tr style="'+(r.highlight?'background:rgba(228,0,43,.04)':'')+'"><td style="'+td+';text-align:left;font-weight:'+(r.bold?700:400)+'">'+r.l+'</td>'
+      +'<td style="'+td+';color:var(--t3)">'+fv(r.v24||0)+'</td>'
+      +'<td style="'+td+';color:var(--t3)">'+fv(r.v25||0)+'</td>'
+      +'<td style="'+td+';background:rgba(37,99,235,.06);font-weight:700;color:#1d4ed8">'+fv(r.v26||0)+'</td>'
+      +'<td style="'+td+';color:'+(diff>=0?'#d97706':'#059669')+';font-weight:600">'+(diff>=0?'+':'')+fv(diff)+' ('+pct+')</td></tr>';
+  };
+
+  var tabBtns = _f26TabBtns('labor_infra');
+  return '<div style="max-width:1400px;margin:0 auto">'
+  +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">'+tabBtns+'</div>'
+  +'<div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:11px">'
+  +'📌 <b>P&L 연동</b> — 인건비: <b>'+fmt(lb26)+'</b>백만 / 임차: <b>'+fmt(rent26)+'</b>백만 / 감가: <b>'+fmt(dep26)+'</b>백만'
+  +'<span style="color:var(--t3);margin-left:8px">BM실적 반영시 자동 갱신</span></div>'
+  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+  +'<div class="card" style="padding:14px">'
+  +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">👥 인건비 현황 <span style="font-size:10px;color:var(--t3)">인원 '+fmt(hc_total)+'명 (일반직 '+gen_hc+' / 영업직 '+fmt(sal_hc)+')</span></div>'
+  +'<table class="tbl" style="font-size:11px;width:100%">'
+  +'<thead><tr><th style="'+th+';text-align:left;min-width:150px">항목</th><th style="'+th+'">24년</th><th style="'+th+'">25년</th><th style="'+th+';background:rgba(37,99,235,.08);color:#1d4ed8">26E</th><th style="'+th+'">증감(YoY)</th></tr></thead>'
+  +'<tbody>'+lb_rows.map(mkRow).join('')
+  +'<tr style="background:rgba(59,130,246,.04)"><td style="'+td+';text-align:left;color:var(--ac2)">└ 일반직 인당(백만/년)</td>'
+  +'<td style="'+td+';color:var(--t3)">86.2</td><td style="'+td+';color:var(--t3)">89.9</td>'
+  +'<td style="'+td+';color:#1d4ed8;font-weight:700">'+gen_ipp26.toFixed(1)+'</td>'
+  +'<td style="'+td+';color:#d97706">+'+(gen_ipp26-89.9).toFixed(1)+'</td></tr>'
+  +'<tr style="background:rgba(59,130,246,.04)"><td style="'+td+';text-align:left;color:var(--ac2)">└ 영업직 인당(백만/년)</td>'
+  +'<td style="'+td+';color:var(--t3)">37.1</td><td style="'+td+';color:var(--t3)">38.9</td>'
+  +'<td style="'+td+';color:#1d4ed8;font-weight:700">'+sal_ipp26.toFixed(1)+'</td>'
+  +'<td style="'+td+';color:#d97706">+'+(sal_ipp26-38.9).toFixed(1)+'</td></tr>'
+  +'<tr style="background:rgba(59,130,246,.04)"><td style="'+td+';text-align:left;color:var(--ac2);font-weight:700">★ 전체 인당인건비(백만/년)</td>'
+  +'<td style="'+td+';color:var(--t3)">62.5</td><td style="'+td+';color:var(--t3)">65.9</td>'
+  +'<td style="'+td+';color:#1d4ed8;font-weight:800">'+ppLabor26.toFixed(1)+'</td>'
+  +'<td style="'+td+';color:#d97706">+'+(ppLabor26-65.9).toFixed(1)+'</td></tr>'
+  +'</tbody></table></div>'
+  +'<div style="display:flex;flex-direction:column;gap:10px">'
+  +'<div class="card" style="padding:14px">'
+  +'<div style="font-size:12px;font-weight:700;margin-bottom:8px">🏪 인프라·임차 현황</div>'
+  +'<table class="tbl" style="font-size:11px;width:100%">'
+  +'<thead><tr><th style="'+th+';text-align:left">항목</th><th style="'+th+'">25년</th><th style="'+th+';background:rgba(37,99,235,.08);color:#1d4ed8">26E</th><th style="'+th+'">증감</th></tr></thead>'
+  +'<tbody>'
+  +[['소매매장수(점)', IF25.stores, IF26.stores],
+    ['매장임차료 단가(백만/년)', IF25.rent_per, IF26.rent_per],
+    ['관리비 단가(원/점/월)', IF25.mgmt_per, IF26.mgmt_per],
+    ['전기차+OA(백만)', IF25.car+IF25.oa, IF26.car+IF26.oa],
+    ['수도광열비(백만)', IF25.util, IF26.util],
+  ].map(function(r){
+    var d=r[2]-r[1];
+    return '<tr><td style="'+td+';text-align:left">'+r[0]+'</td>'
+      +'<td style="'+td+';color:var(--t3)">'+fmt(r[1])+'</td>'
+      +'<td style="'+td+';background:rgba(37,99,235,.06);color:#1d4ed8;font-weight:700">'+fmt(r[2])+'</td>'
+      +'<td style="'+td+';color:'+(d>=0?'#d97706':'#059669')+'">'+(d>=0?'+':'')+fmt(d)+'</td></tr>';
+  }).join('')
+  +'<tr style="background:rgba(59,130,246,.04);font-weight:700">'
+  +'<td style="'+td+';text-align:left;color:var(--ac2)">★ 임차합계(시뮬)</td>'
+  +'<td style="'+td+';color:var(--t3)">'+fmt(H_TOT.rent[3])+'</td>'
+  +'<td style="'+td+';color:#1d4ed8;font-weight:800">'+fmt(rent26)+'</td>'
+  +'<td style="'+td+';color:#d97706">+'+fmt(rent26-H_TOT.rent[3])+'</td></tr>'
+  +'</tbody></table></div>'
+  +'<div class="card" style="padding:14px">'
+  +'<div style="font-size:12px;font-weight:700;margin-bottom:8px">📉 감가상각 현황</div>'
+  +'<table class="tbl" style="font-size:11px;width:100%">'
+  +'<thead><tr><th style="'+th+';text-align:left">항목</th><th style="'+th+'">25년</th><th style="'+th+';background:rgba(37,99,235,.08)">26E</th><th style="'+th+'">증감</th></tr></thead>'
+  +'<tbody>'
+  +[['CAPEX(백만)', 2800, 2950],
+    ['통신 감가(백만)', H_TOT.dep[3]-(H_DIST.dep?H_DIST.dep[3]:0), dep26-dist_dep26],
+    ['유통 감가(백만)', H_DIST.dep?H_DIST.dep[3]:0, dist_dep26],
+    ['★ 합계', H_TOT.dep[3], dep26],
+  ].map(function(r){
+    var d=r[2]-r[1];
+    return '<tr><td style="'+td+';text-align:left">'+r[0]+'</td>'
+      +'<td style="'+td+';color:var(--t3)">'+fmt(Math.round(r[1]))+'</td>'
+      +'<td style="'+td+';background:rgba(37,99,235,.06);color:#1d4ed8;font-weight:700">'+fmt(Math.round(r[2]))+'</td>'
+      +'<td style="'+td+';color:'+(d>=0?'#d97706':'#059669')+'">'+(d>=0?'+':'')+fmt(Math.round(d))+'</td></tr>';
+  }).join('')
+  +'</tbody></table></div></div></div></div>';
+}
+
+// ============================================================
+// 📦 26E 기타수수료 현황
+// ============================================================
+function f26RenderEtcFee(){
+  if(!F27.merged26) f27ComputeMerged26();
+  var m = F27.merged26;
+  var _mAnn = function(k){ return (m[k]||[]).reduce(function(s,v){return s+v;},0); };
+  var fmt = function(v){ return Math.round(v||0).toLocaleString('ko-KR'); };
+  var th = 'padding:6px 10px;border:1px solid #dde3ee;font-weight:700;font-size:10.5px;background:#f8fafc;color:#64748b;text-align:center';
+  var td = 'border:1px solid #eef2f7;padding:4px 8px;text-align:right;font-size:11px';
+
+  var etc26 = _mAnn('etc'), comm26 = _mAnn('comm');
+
+  var EF_ITEMS=[
+    {l:'도매 도급수수료',     v24:20500, v25:17301, v26:22182, note:'도매 CAPA 연동'},
+    {l:'KT닷컴 지원수수료',   v24:18200, v25:20070, v26:9240,  note:'디지털 채널 효율화'},
+    {l:'윈윈 추가위탁수수료', v24:8000,  v25:8459,  v26:7818,  note:'안정화'},
+    {l:'기타사항 수수료',     v24:2100,  v25:2241,  v26:2501,  note:'물가연동'},
+    {l:'바로유심 용역',       v24:1500,  v25:1601,  v26:1680,  note:'판매량 연동'},
+    {l:'바로배송 위탁',       v24:950,   v25:1046,  v26:1200,  note:'배송량 증가'},
+    {l:'기업무선센터',        v24:280,   v25:322,   v26:370,   note:'기업 CAPA'},
+    {l:'KT업무지원센터',      v24:190,   v25:195,   v26:202,   note:'물가연동'},
+    {l:'kt모바일 AS용역',     v24:310,   v25:327,   v26:360,   note:'물가연동'},
+    {l:'KT AC 도급',          v24:1450,  v25:1361,  v26:27,    note:'사업종료'},
+    {l:'수수료수입-기타',     v24:2700,  v25:2592,  v26:1324,  note:'조정'},
+  ];
+  var t24=0,t25=0,t26=0;
+  var rows=EF_ITEMS.map(function(item){
+    t24+=item.v24; t25+=item.v25; t26+=item.v26;
+    var d=item.v26-item.v25; var pct=item.v25?((d/item.v25)*100).toFixed(1)+'%':'—';
+    return '<tr><td style="'+td+';text-align:left">'+item.l+'</td>'
+      +'<td style="'+td+';color:var(--t3)">'+fmt(item.v24)+'</td>'
+      +'<td style="'+td+';color:var(--t3)">'+fmt(item.v25)+'</td>'
+      +'<td style="'+td+';background:rgba(37,99,235,.06);font-weight:700;color:#1d4ed8">'+fmt(item.v26)+'</td>'
+      +'<td style="'+td+';color:'+(d>=0?'#d97706':'#059669')+';font-weight:600">'+(d>=0?'+':'')+fmt(d)+' ('+pct+')</td>'
+      +'<td style="'+td+';text-align:left;font-size:10px;color:var(--t3)">'+item.note+'</td></tr>';
+  }).join('');
+
+  var tabBtns = _f26TabBtns('etcfee');
+  return '<div style="max-width:1400px;margin:0 auto">'
+  +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">'+tabBtns+'</div>'
+  +'<div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:11px">'
+  +'📌 <b>P&L 연동</b> — 기타수수료(전사) 26E: <b>'+fmt(etc26)+'</b>백만 / 수수료수입 합계: <b>'+fmt(comm26)+'</b>백만'
+  +'</div>'
+  +'<div class="card" style="padding:14px">'
+  +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">📦 기타수수료 항목별 26E 현황</div>'
+  +'<div style="overflow-x:auto"><table class="tbl" style="font-size:11px;min-width:700px">'
+  +'<thead><tr><th style="'+th+';text-align:left;min-width:160px">항목</th>'
+  +'<th style="'+th+'">24년</th><th style="'+th+'">25년</th>'
+  +'<th style="'+th+';background:rgba(37,99,235,.08);color:#1d4ed8">26E</th>'
+  +'<th style="'+th+'">증감(YoY)</th><th style="'+th+';text-align:left">비고</th></tr></thead>'
+  +'<tbody>'+rows
+  +'<tr style="background:#f8fafc;font-weight:700"><td style="'+td+';text-align:left">합 계</td>'
+  +'<td style="'+td+';color:var(--t3)">'+fmt(t24)+'</td><td style="'+td+';color:var(--t3)">'+fmt(t25)+'</td>'
+  +'<td style="'+td+';background:rgba(37,99,235,.08);font-weight:800;color:#1d4ed8">'+fmt(t26)+'</td>'
+  +'<td style="'+td+';color:'+(t26>=t25?'#d97706':'#059669')+'">'+(t26>=t25?'+':'')+fmt(t26-t25)+'</td><td></td></tr>'
+  +'<tr style="background:#eff6ff"><td style="'+td+';text-align:left;color:var(--ac2)">★ 시뮬 전사 기타수수료</td>'
+  +'<td style="'+td+';color:var(--t3)">'+fmt(H_TOT.etc[2])+'</td>'
+  +'<td style="'+td+';color:var(--t3)">'+fmt(H_TOT.etc[3])+'</td>'
+  +'<td style="'+td+';font-weight:800;color:var(--ac2)">'+fmt(etc26)+'</td>'
+  +'<td style="'+td+';color:var(--ac2)">'+(etc26>=H_TOT.etc[3]?'+':'')+fmt(etc26-H_TOT.etc[3])+'</td>'
+  +'<td style="'+td+';font-size:10px;color:var(--t3)">P&L 탭 연동값</td></tr>'
+  +'</tbody></table></div>'
+  +'<div style="margin-top:8px;font-size:10px;color:var(--t3)">※ 항목별 값은 계획 기준입니다. 시뮬 합산값은 위 파란 행(★)에서 확인하세요.</div>'
+  +'</div></div>';
+}
+
+// ============================================================
+// 📝 26E 계획 근거 (Narrative Report)
+// ============================================================
+function f26RenderNarrative(){
+  if(!F27.merged26) f27ComputeMerged26();
+  var m = F27.merged26;
+  var _mAnn = function(k){ return (m[k]||[]).reduce(function(s,v){return s+v;},0); };
+  var fmt = function(v){ return Math.round(v||0).toLocaleString('ko-KR'); };
+  var fmtB = function(v){ return (Math.round((v||0)/100)/10).toFixed(0)+'억'; };
+  var yoy = function(v26,v25){ var d=(v26-v25)/Math.abs(v25||1)*100; return (d>=0?'+':'')+d.toFixed(1)+'%'; };
+  var pp = function(a,b){ return ((a-b)).toFixed(1)+'pp'; };
+  var lastM = F27.lastActualMonth;
+
+  var rev26=_mAnn('rev'), op26=_mAnn('op');
+  var rev25=H_TOT.rev[3]||753458, op25=H_TOT.op[3]||16341;
+  var opm26=rev26?op26/rev26*100:0, opm25=rev25?op25/rev25*100:0;
+  var lb26=_mAnn('labor'), lb25=H_TOT.labor[3]||140784;
+  var mkt26=_mAnn('mkt'), mkt25=H_TOT.mkt[3]||44834;
+  var dep26=_mAnn('dep'), dep25=H_TOT.dep[3]||6388;
+  var opex26=_mAnn('opex'), opex25=H_TOT.opex[3]||38524;
+  var pol26=_mAnn('pol'), pol25=H_TOT.pol[3]||176218;
+  var mgmt26=_mAnn('mgmt'), mgmt25=H_TOT.mgmt[3]||61564;
+  var prod26=_mAnn('prod'), prod25=H_TOT.prod[3]||467696;
+  var dist_op26=_mAnn('dist_op'), dist_op25=H_DIST.op[3]||5595;
+  var tel_op26=op26-dist_op26, tel_op25=op25-dist_op25;
+  var capa26=670000, capa25=642934;
+
+  var planRev=PLAN_2026_FULL.rev.ann, planOp=PLAN_2026_FULL.op.ann;
+
+  var reasons = {
+    rev: '무선 CAPA '+fmt(capa26)+'건(비IoT, +'+yoy(capa26,capa25)+') 기반 수수료 수익 강화. 정책수수료 단가 상향(+5.2%) 및 유통플랫폼 성장으로 전사 매출 '+yoy(rev26,rev25)+' 성장 계획',
+    pol: '무선 CAPA 성장('+yoy(capa26,capa25)+')과 대당정책단가 247,338원(+5.2%) 적용으로 정책수수료 '+yoy(pol26,pol25)+' 성장',
+    mgmt: 'Active 가입자 안정 관리 및 단가 소폭 인상으로 관리수수료 '+yoy(mgmt26,mgmt25)+' 계획',
+    prod: 'CAPA 성장에 따른 단말 판매 증가로 상품매출 '+yoy(prod26,prod25)+'. 대당원가 760,673원 계획',
+    lb: '임금인상률 4.97% 반영(임단협 기준), 영업직 1,940명 규모 유지. 인건비 '+yoy(lb26,lb25)+' 증가 계획',
+    mkt: 'CAPA 성장 연동 판촉비 및 판매수수료 확대로 마케팅비용 '+yoy(mkt26,mkt25)+' 증가',
+    rent: '소매 매장 258개 운영, 임차료 안정 관리로 임차관리비 계획',
+    dep: '기존 자산 감가상각 진행 및 신규 CAPEX 30억 투자 반영',
+    opex: '물가 상승 반영 기반 기타운영비 '+yoy(opex26,opex25)+' 소폭 증가',
+    dist: '굿바이 채널 확대(매입 111K건), 코코넛 월 6천건+ 운영으로 유통플랫폼 영업이익 '+yoy(dist_op26,dist_op25)+' 성장',
+  };
+
+  var mkCard = function(icon, title, v25, v26, reason, color, isGood){
+    var d = v26-v25;
+    var ok = isGood ? d>=0 : d<=0;
+    return '<div class="card" style="padding:16px;border-left:3px solid '+color+'">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+      +'<span style="font-size:18px">'+icon+'</span><div>'
+      +'<div style="font-size:13px;font-weight:700;color:var(--t1)">'+title+'</div>'
+      +'<div style="font-size:10px;color:var(--t3)">25년 '+fmtB(v25)+' → <b style="color:'+color+'">26E '+fmtB(v26)+'</b> (계획 '+fmtB(isGood?planRev:planOp)+')</div>'
+      +'</div><div style="margin-left:auto;text-align:right">'
+      +'<div style="font-size:16px;font-weight:800;color:'+(ok?'#059669':'#dc2626')+'">'+(d>=0?'+':'')+fmtB(d)+'</div>'
+      +'<div style="font-size:10px;color:var(--t3)">YoY '+yoy(v26,v25)+'</div>'
+      +'</div></div>'
+      +'<div style="font-size:11px;color:var(--t2);line-height:1.6;background:var(--bg2);border-radius:6px;padding:8px 10px">'
+      +'💡 <b>계획 근거:</b> '+reason+'</div></div>';
+  };
+
+  var gapItems = [
+    {l:'매출', v25:rev25, v26:rev26, plan:planRev},
+    {l:'영업이익', v25:op25, v26:op26, plan:planOp},
+    {l:'통신 영업이익', v25:tel_op25, v26:tel_op26, plan:planOp-PLAN_DIST_FULL.op.ann},
+    {l:'유통 영업이익', v25:dist_op25, v26:dist_op26, plan:PLAN_DIST_FULL.op.ann},
+    {l:'인건비', v25:lb25, v26:lb26, plan:PLAN_2026_FULL.labor.ann},
+    {l:'마케팅', v25:mkt25, v26:mkt26, plan:PLAN_2026_FULL.mkt.ann},
+    {l:'기타운영비', v25:opex25, v26:opex26, plan:PLAN_2026_FULL.opex.ann},
+  ];
+
+  var simStatus = lastM>=0 ? (lastM+1)+'월 실적 반영' : '전체 계획값 기준';
+
+  var tabBtns = _f26TabBtns('narrative');
+  return '<div style="max-width:1200px;margin:0 auto">'
+  +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">'+tabBtns+'</div>'
+
+  +'<div class="card" style="padding:16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;margin-bottom:14px">'
+  +'<div style="font-size:14px;font-weight:800;color:#0c4a6e;margin-bottom:10px">📋 2026년 경영계획 총괄 요약 <span style="font-size:11px;font-weight:400;color:#0369a1">('+simStatus+')</span></div>'
+  +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">'
+  +[{l:'전사 매출',v:rev26,ref:rev25,color:'#1d4ed8'},
+    {l:'영업이익',v:op26,ref:op25,color:'#059669'},
+    {l:'OPM',v:opm26.toFixed(1)+'%',ref:opm25.toFixed(1)+'%',color:'#7c3aed',isPct:true,raw:opm26,rr:opm25},
+    {l:'통신/유통 이익',v:Math.round(tel_op26/100)+'억/'+Math.round(dist_op26/100)+'억',ref:'',color:'#d97706',isStr:true},
+  ].map(function(c){
+    return '<div style="background:#fff;border-radius:8px;padding:10px;text-align:center">'
+      +'<div style="font-size:10px;color:var(--t3)">'+c.l+'</div>'
+      +'<div style="font-size:18px;font-weight:800;color:'+c.color+'">'+(c.isStr?c.v:c.isPct?c.v:fmtB(c.v))+'</div>'
+      +'<div style="font-size:10px;color:'+(c.isPct?((c.raw-c.rr)>=0?'#059669':'#dc2626'):'var(--t3)')+'">'
+      +(c.isPct?((c.raw-c.rr)>=0?'+':'')+pp(c.raw,c.rr)+' pp':c.ref?'25년 '+(c.isStr?'':fmtB(c.ref)):'')+'</div></div>';
+  }).join('')
+  +'</div>'
+  +'<div style="font-size:11px;color:#0c4a6e;line-height:1.7">'
+  +'<b>핵심 전략:</b> 무선 CAPA <b>'+fmt(capa26)+'건</b>(비IoT, +'+yoy(capa26,capa25)+')으로 수수료 수익 기반 강화, '
+  +'유통플랫폼 굿바이·코코넛 확대로 비통신 이익 '+fmtB(dist_op26)+' 달성. '
+  +'임금인상률 4.97% 반영, CAPEX 30억 투자. '
+  +(opm26>opm25?'OPM <b>'+opm25.toFixed(1)+'% → '+opm26.toFixed(1)+'%</b>로 수익성 '+pp(opm26,opm25)+' 개선.'
+              :'OPM <b>'+opm25.toFixed(1)+'% → '+opm26.toFixed(1)+'%</b>로 소폭 조정.')
+  +'</div></div>'
+
+  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">'
+  +mkCard('💰','매출',rev25,rev26,reasons.rev,'#1d4ed8',true)
+  +mkCard('🎯','영업이익',op25,op26,
+    '매출 성장 + 비용 통제로 영업이익 '+yoy(op26,op25)+'. OPM '+opm25.toFixed(1)+'% → '+opm26.toFixed(1)+'%('+((opm26-opm25)>=0?'+':'')+pp(opm26,opm25)+').'
+    ,'#059669',true)
+  +mkCard('📱','정책수수료',pol25,pol26,reasons.pol,'#7c3aed',true)
+  +mkCard('🏷️','관리수수료',mgmt25,mgmt26,reasons.mgmt,'#0891b2',true)
+  +mkCard('👥','인건비',lb25,lb26,reasons.lb,'#dc2626',false)
+  +mkCard('📣','마케팅비용',mkt25,mkt26,reasons.mkt,'#d97706',false)
+  +mkCard('🏪','유통플랫폼 이익',dist_op25,dist_op26,reasons.dist,'#059669',true)
+  +mkCard('📉','감가상각비',dep25,dep26,reasons.dep,'#6b7280',false)
+  +'</div>'
+
+  +'<div class="card" style="padding:14px">'
+  +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">📈 25년 실적 대비 26E 계획 비교</div>'
+  +'<div style="overflow-x:auto"><table class="tbl" style="font-size:11px">'
+  +'<thead><tr><th style="text-align:left;min-width:130px">항목</th>'
+  +'<th>25년</th><th style="color:#1d4ed8;background:rgba(37,99,235,.06)">26E 시뮬</th>'
+  +'<th>계획 원본</th><th>시뮬 vs 계획</th></tr></thead><tbody>'
+  +gapItems.map(function(item){
+    var diff26=item.v26-item.plan;
+    var isRev=item.l==='매출'||item.l.includes('이익');
+    var ok=isRev?diff26>=0:diff26<=0;
+    return '<tr><td style="font-weight:600">'+item.l+'</td>'
+      +'<td style="color:var(--t3);font-family:monospace">'+fmt(Math.round(item.v25/100))+'억</td>'
+      +'<td style="font-weight:700;color:#1d4ed8;background:rgba(37,99,235,.04);font-family:monospace">'+fmt(Math.round(item.v26/100))+'억</td>'
+      +'<td style="font-family:monospace">'+fmt(Math.round(item.plan/100))+'억</td>'
+      +'<td style="color:'+(ok?'#059669':'#d97706')+';font-weight:600">'+(diff26>=0?'+':'')+fmt(Math.round(diff26/100))+'억</td></tr>';
+  }).join('')
+  +'</tbody></table></div>'
+  +'<div style="margin-top:10px;font-size:11px;color:var(--t2);background:var(--bg2);padding:8px 10px;border-radius:6px">'
+  +'📌 <b>시뮬 대비 계획 요약:</b> '
+  +(rev26>planRev?'매출은 BM실적 반영으로 계획 상회':'매출은 계획 수준 또는 하회')+', '
+  +(op26>planOp?'영업이익 계획 상회 — 실적 호조':'영업이익 계획 대비 검토 필요')+'.'
+  +'</div></div></div>';
+}
+
 
 // ============================================================
 // 렌더: 27년 예측
