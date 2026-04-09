@@ -12334,11 +12334,34 @@ function _buildPassthrough(){
       sga_ann:_actSga.reduce((a,b)=>a+b,0),     sga_mon:_actSga,
       op_ann:op_ann_final,      op_mon:op_mon_final,
     },
-    _drv:{
-      w_pol_total:T.pol.ann, w_pol_mon:tg('pol'),
-      w_mgmt_total:T.mgmt.ann, w_mgmt_mon:tg('mgmt'),
-      wl_pol_ann:0,wl_pol_mon:z12,wl_mgmt_total:0,wl_mgmt_mon:z12,
-    },
+    _drv:(()=>{
+      // ★ v98: passthrough에서도 유선 건당 지표용 데이터 — plan 상수 기반
+      const _wlNetTot = (typeof WL_NET_26!=='undefined') ? WL_NET_26.reduce((a,b)=>a+b,0) : 0;
+      const _wlNetM = (typeof WL_NET_26_MON!=='undefined') ? Array(12).fill(0).map((_,m)=> WL_CH.reduce((s,ch)=>s+((WL_NET_26_MON[ch]||[])[m]||0),0)) : z12;
+      const _wlPolAnn = (typeof WL_POL_26_ANN!=='undefined') ? WL_POL_26_ANN : 0;
+      const _wlPolMon = (typeof WL_POL_26_MON!=='undefined') ? WL_POL_26_MON.slice() : z12;
+      const _wlMgmtTot = (typeof WL_MGMT_26!=='undefined') ? Object.values(WL_MGMT_26).reduce((a,b)=>a+b,0) : 0;
+      const _wlMgmtChs = (typeof WL_MGMT_26!=='undefined') ? Object.keys(WL_MGMT_26) : [];
+      const _wlMgmtByCh = (typeof WL_MGMT_26!=='undefined') ? {...WL_MGMT_26} : {};
+      const _wlMgmtMonByCh = (typeof WL_MGMT_26_MON!=='undefined') ? {...WL_MGMT_26_MON} : {};
+      const _wlMgmtMon = Array(12).fill(0).map((_,m)=> _wlMgmtChs.reduce((s,ch)=>s+((_wlMgmtMonByCh[ch]||[])[m]||0),0));
+      // 무선 정책수수료 = 통신 정책수수료 - 유선 정책수수료
+      const _wPolTotal = T.pol.ann - _wlPolAnn;
+      const _wPolMon = tg('pol').map((v,m)=>v-(_wlPolMon[m]||0));
+      // 무선 관리수수료 = 통신 관리수수료 - 유선 관리수수료
+      const _wMgmtTotal = T.mgmt.ann - _wlMgmtTot;
+      const _wMgmtMon = tg('mgmt').map((v,m)=>v-(_wlMgmtMon[m]||0));
+      return {
+        w_pol_total:_wPolTotal, w_pol_mon:_wPolMon,
+        w_mgmt_total:_wMgmtTotal, w_mgmt_mon:_wMgmtMon,
+        wl_pol_ann:_wlPolAnn, wl_pol_mon:_wlPolMon,
+        wl_mgmt_total:_wlMgmtTot, wl_mgmt_mon:_wlMgmtMon,
+        wl_net_total:_wlNetTot, wl_net_mon:_wlNetM,
+        wl_inc_ann:0, wl_inc_mon:z12,
+        wl_prm_ann:0, wl_prm_mon:z12,
+        wl_mgmt_chs:_wlMgmtChs, wl_mgmt_by_ch:_wlMgmtByCh, wl_mgmt_mon_by_ch:_wlMgmtMonByCh,
+      };
+    })(),
   };
 }
 function _hasUserAdj(){
@@ -12860,6 +12883,11 @@ function simPLv2(){
       w_mgmt_total:w_mgmt_mon.reduce((a,b)=>a+b,0), w_mgmt_mon:w_mgmt_mon,
       wl_pol_ann:wl.polAnn, wl_pol_mon:wl.polMon,
       wl_mgmt_total:wl.mgmtTotal, wl_mgmt_mon:wl.mgmtTotalMon,
+      // ★ v98: 유선 건당 지표 계산용 추가 데이터
+      wl_net_total:wl.netTotal||0, wl_net_mon:wl.netTotalMon||Array(12).fill(0),
+      wl_inc_ann:wl.incAnn||0, wl_inc_mon:wl.incMon||Array(12).fill(0),
+      wl_prm_ann:wl.prmAnn||0, wl_prm_mon:wl.prmMon||Array(12).fill(0),
+      wl_mgmt_chs:wl.mgmtChs||[], wl_mgmt_by_ch:wl.mgmt||{}, wl_mgmt_mon_by_ch:wl.mgmtMon||{},
     },
   };
 }
@@ -13367,12 +13395,16 @@ function renderPL(){
       {l:'    정책수수료',         hk:'pol',   v26:s.tel.pol_ann,          mon26:s.tel.pol_mon,     lnk:true, cls:'r-sub2'},
       {l:'      └ 대당정책수수료', hk:null,    v26:_unitCalc(s._drv.w_pol_total, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'      무선 정책수수료', hk:null,    v26:s._drv.w_pol_total,     mon26:s._drv.w_pol_mon,  cls:'r-sub3'},
+      {l:'        └ 무선 건당정책', hk:null,  v26:_capaNoIoT>0?Math.round(s._drv.w_pol_total*1e6/_capaNoIoT):0, mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'      유선 정책수수료', hk:null,    v26:s._drv.wl_pol_ann,      mon26:s._drv.wl_pol_mon, cls:'r-sub3'},
+      {l:'        └ 유선 건당정책', hk:null,  v26:s._drv.wl_net_total>0?Math.round(s._drv.wl_pol_ann*1e6/s._drv.wl_net_total):0, mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'    관리수수료',         hk:'mgmt',  v26:s.tel.mgmt_ann,         mon26:s.tel.mgmt_mon,    lnk:true, cls:'r-sub2'},
-      {l:'      └ 채널별 관리수수료', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      {l:'      └ 무선 채널별 관리수수료', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
       ..._chMgmtRows,
       {l:'      무선 관리수수료', hk:null,    v26:s._drv.w_mgmt_total,    mon26:s._drv.w_mgmt_mon, cls:'r-sub3'},
       {l:'      유선 관리수수료', hk:null,    v26:s._drv.wl_mgmt_total,   mon26:s._drv.wl_mgmt_mon,cls:'r-sub3'},
+      {l:'        └ 유선 채널별 관리수수료', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      ...(s._drv.wl_mgmt_chs||[]).map(ch => ({l:'          '+ch, hk:null, v26:Math.round((s._drv.wl_mgmt_by_ch[ch]||0)), mon26:s._drv.wl_mgmt_mon_by_ch[ch]||null, cls:'r-unit-ch', derived:true, unitLabel:'백만'})),
       {l:'    기타수수료',         hk:'etc',   v26:s.tel.etc_ann,          mon26:s.tel.etc_mon,     lnk:true, cls:'r-sub2'},
       {l:'II. 매출원가',           hk:'cogs',  v26:s.tel.cogs_ann,         mon26:s.tel.cogs_mon,    lnk:true, cls:'r-tot'},
       {l:'    └ 대당원가(가중평균)',hk:null,    v26:_unitCalc(s.tel.cogs_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
@@ -13386,14 +13418,18 @@ function renderPL(){
       {l:'  인건비',               hk:'labor', v26:s.tel.labor_ann,        mon26:s.tel.labor_mon,   lnk:true, cls:'r-sub'},
       {l:'    └ 인당인건비',       hk:null,    v26:Math.round(s.tel.labor_ann/_hcAvg*100)/100, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
       {l:'    일반직 급여',        hk:null,    v26:_lbGenAnn,              mon26:lb.gen_mon,        cls:'r-sub2', lnk:true},
+      {l:'      └ 일반직 인당연봉',hk:null,    v26:lb.gen_hc>0?Math.round(_lbGenAnn/lb.gen_hc*10)/10:0, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
       {l:'    영업직군 급여',      hk:null,    v26:_lbSalAnn,              mon26:lb.sal_mon,        cls:'r-sub2', lnk:true},
+      {l:'      └ 영업직 인당연봉',hk:null,    v26:lb.sal_hc>0?Math.round(_lbSalAnn/lb.sal_hc*10)/10:0, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
       {l:'    특별격려금',         hk:null,    v26:_lbBonAnn,              mon26:lb.bonus_arr,      cls:'r-sub2'},
       {l:'    포상비',             hk:null,    v26:_lbRewAnn,              mon26:lb.reward_arr,     cls:'r-sub2'},
       {l:'    퇴직급여충당금',     hk:null,    v26:_lbRetAnn,              mon26:lb.retire_arr,     cls:'r-sub2'},
       {l:'    복리후생비',         hk:null,    v26:_lbWelAnn,              mon26:lb.welfare_arr,    cls:'r-sub2'},
       {l:'  마케팅비용',           hk:'mkt',   v26:s.tel.mkt_ann,          mon26:s.tel.mkt_mon,     lnk:true, cls:'r-sub'},
       {l:'    판매수수료',         hk:'sc',    v26:s.tel.sc_ann,           mon26:s.tel.sc_mon,      lnk:true, cls:'r-sub2'},
+      {l:'      └ 건당판매수수료', hk:null,    v26:_unitCalc(s.tel.sc_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'    판촉비',             hk:'sp',    v26:s.tel.sp_ann,           mon26:s.tel.sp_mon,      lnk:true, cls:'r-sub2'},
+      {l:'      └ 건당판촉비',     hk:null,    v26:_unitCalc(s.tel.sp_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'    광고선전비',         hk:'adv',   v26:s.tel.adv_ann,          mon26:s.tel.adv_mon,     lnk:true, cls:'r-sub2'},
       {l:'  임차관리비',           hk:'rent',  v26:s.tel.rent_ann,         mon26:s.tel.rent_mon,    lnk:true, cls:'r-sub'},
       {l:'    건물임차료',         hk:null,    v26:ifr.building_ann,       mon26:ifr.building_mon,  cls:'r-sub2', lnk:true},
@@ -13465,10 +13501,13 @@ function renderPL(){
       ..._chProdRows2,
       {l:'    수수료수입',            hk:null,    v26:s.tel.comm_ann,                   mon26:s.tel.comm_mon,                       cls:'r-sub2'},
       {l:'      정책수수료',          hk:'pol',   v26:s.tel.pol_ann+Math.round(PD.pol.ann), mon26:s.tel.pol_mon.map((v,m)=>v+(PD.pol.mon[m]||0)), lnk:true, cls:'r-sub3'},
-      {l:'        └ 대당정책(가중평균)',hk:null,   v26:_unitCalc(s._drv?.w_pol_total||0, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'        └ 무선 건당정책',    hk:null,   v26:_unitCalc(s._drv?.w_pol_total||0, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'        └ 유선 건당정책',    hk:null,   v26:(s._drv?.wl_net_total||0)>0?Math.round((s._drv?.wl_pol_ann||0)*1e6/(s._drv.wl_net_total)):0, mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'      관리수수료',          hk:'mgmt',  v26:s.tel.mgmt_ann,                   mon26:s.tel.mgmt_mon,                       lnk:true, cls:'r-sub3'},
-      {l:'        채널별 관리수수료',  hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      {l:'        무선 채널별 관리수수료', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
       ..._chMgmtRows2,
+      {l:'        유선 채널별 관리수수료', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      ...(s._drv?.wl_mgmt_chs||[]).map(ch => ({l:'          '+ch, hk:null, v26:Math.round((s._drv?.wl_mgmt_by_ch?.[ch]||0)), mon26:s._drv?.wl_mgmt_mon_by_ch?.[ch]||null, cls:'r-unit-ch', derived:true, unitLabel:'백만'})),
       {l:'      기타수수료',          hk:'etc',   v26:s.tel.etc_ann+Math.round(PD.etc.ann), mon26:s.tel.etc_mon.map((v,m)=>v+(PD.etc.mon[m]||0)), lnk:true, cls:'r-sub3'},
       {l:'  유통플랫폼 매출',         hk:null,    v26:s.dist.rev_ann,                   mon26:s.dist.rev_mon,                       cls:'r-sub'},
       {l:'II. 매출원가',              hk:'cogs',  v26:s.tot.rev_ann-s.tot.gp_ann,       mon26:s.tot.cogs_mon.slice(),               lnk:true, cls:'r-tot'},
@@ -13483,7 +13522,9 @@ function renderPL(){
       {l:'    └ 인당인건비(전사)',    hk:null,    v26:Math.round(s.tot.labor_ann/_hcAvg*100)/100, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
       {l:'    통신 인건비 소계',      hk:null,    v26:s.tel.labor_ann,                  mon26:s.tel.labor_mon,                      cls:'r-sub2'},
       {l:'      일반직 급여',         hk:null,    v26:_lb2GenAnn,                       mon26:lb2.gen_mon,                          cls:'r-sub3', lnk:true},
+      {l:'        └ 일반직 인당연봉', hk:null,   v26:lb2.gen_hc>0?Math.round(_lb2GenAnn/lb2.gen_hc*10)/10:0, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
       {l:'      영업직군 급여',       hk:null,    v26:_lb2SalAnn,                       mon26:lb2.sal_mon,                          cls:'r-sub3', lnk:true},
+      {l:'        └ 영업직 인당연봉', hk:null,   v26:lb2.sal_hc>0?Math.round(_lb2SalAnn/lb2.sal_hc*10)/10:0, mon26:null, cls:'r-unit', derived:true, unitLabel:'백만/인·년'},
       {l:'      특별격려금',          hk:null,    v26:lb2.bonus_ann,                    mon26:lb2.bonus_arr,                        cls:'r-sub3'},
       {l:'      포상비',              hk:null,    v26:lb2.reward_ann,                   mon26:lb2.reward_arr,                       cls:'r-sub3'},
       {l:'      퇴직급여충당금',      hk:null,    v26:lb2.retire_ann,                   mon26:lb2.retire_arr,                       cls:'r-sub3'},
@@ -13492,7 +13533,9 @@ function renderPL(){
       {l:'  마케팅비용(전사)',         hk:'mkt',   v26:s.tot.mkt_ann,                    mon26:s.tot.mkt_mon,                        lnk:true, cls:'r-sub'},
       {l:'    통신 마케팅',           hk:null,    v26:s.tel.mkt_ann,                    mon26:s.tel.mkt_mon,                        cls:'r-sub2'},
       {l:'      판매수수료',          hk:'sc',    v26:s.tel.sc_ann,                     mon26:s.tel.sc_mon,                         lnk:true, cls:'r-sub3'},
+      {l:'        └ 건당판매수수료',  hk:null,    v26:_unitCalc(s.tel.sc_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'      판촉비',              hk:'sp',    v26:s.tel.sp_ann,                     mon26:s.tel.sp_mon,                         lnk:true, cls:'r-sub3'},
+      {l:'        └ 건당판촉비',      hk:null,    v26:_unitCalc(s.tel.sp_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'      광고선전비',          hk:'adv',   v26:s.tel.adv_ann,                    mon26:s.tel.adv_mon,                        lnk:true, cls:'r-sub3'},
       {l:'    유통플랫폼 마케팅',     hk:null,    v26:s.tot.dist_mkt_ann||0,            mon26:s.tot.dist_mkt_mon||null,             cls:'r-sub2'},
       {l:'  임차관리비',              hk:'rent',  v26:s.tot.rent_ann,                   mon26:s.tot.rent_mon,                       lnk:true, cls:'r-sub'},
@@ -25947,6 +25990,41 @@ function _crossTabValidation(){
       if(Math.abs(tot-tel-dist) > 5)
         issues.push({tab:'pl',msg:`전사 ${k}(${fmt(tot)}) ≠ 통신(${fmt(tel)}) + 유통(${fmt(dist)})`,sev:'error'});
     });
+    // 4. 채널별 bottom-up 상품매출 합산 ↔ 통신 상품매출 검증
+    try{
+      const ws=simWireless();
+      if(ws.prodRevByCh){
+        const chProdSum=W_CH_NO_IOT.reduce((s,ch)=>{
+          return s+(ws.prodRevByCh[ch]||[]).reduce((a,b)=>a+b,0);
+        },0);
+        const telProd=Math.round(plv2.tel.prod_ann||0);
+        if(Math.abs(chProdSum-telProd)>10)
+          issues.push({tab:'wireless',msg:`채널합산 상품매출(${fmt(chProdSum)}) ≠ 통신상품매출(${fmt(telProd)})`,sev:'warn'});
+      }
+      // 5. 채널별 매출원가 합산 검증
+      if(ws.prodCogsByCh){
+        const chCogsSum=W_CH_NO_IOT.reduce((s,ch)=>{
+          return s+(ws.prodCogsByCh[ch]||[]).reduce((a,b)=>a+b,0);
+        },0);
+        const telCogs=Math.round(plv2.tel.cogs_ann||0);
+        if(Math.abs(chCogsSum-telCogs)>10)
+          issues.push({tab:'wireless',msg:`채널합산 매출원가(${fmt(chCogsSum)}) ≠ 통신매출원가(${fmt(telCogs)})`,sev:'warn'});
+      }
+    }catch(e){}
+    // 6. 인건비 하위항목 합산 ↔ 전체 인건비 (도급비 제외 검증)
+    const lbSubSum=Math.round(lb.salary_ann+lb.bonus_ann+lb.reward_ann+lb.retire_ann+lb.welfare_ann);
+    if(Math.abs(lbSubSum-Math.round(lb.total_ann))>5)
+      issues.push({tab:'labor',msg:`인건비 하위합산(${fmt(lbSubSum)}) ≠ total(${fmt(Math.round(lb.total_ann))}) — 도급비 제외 확인`,sev:'warn'});
+    // 7. 유선 관리수수료 + 무선 관리수수료 ↔ 통신 관리수수료
+    try{
+      const wl=simWireline();
+      const ws2=simWireless();
+      const wireMgmt=ws2.관리수수료?Object.values(ws2.관리수수료).reduce((s,arr)=>s+(arr||[]).reduce((a,b)=>a+b,0),0):0;
+      const wlMgmt=wl.mgmtTotal||0;
+      const telMgmt=Math.round(plv2.tel.mgmt_ann||0);
+      if(Math.abs(Math.round(wireMgmt+wlMgmt)-telMgmt)>10)
+        issues.push({tab:'pl',msg:`무선관리(${fmt(Math.round(wireMgmt))})+유선관리(${fmt(Math.round(wlMgmt))}) ≠ 통신관리(${fmt(telMgmt)})`,sev:'warn'});
+    }catch(e){}
     // 배너 표시
     const el=document.getElementById('_crossTabBanner');
     if(el){
