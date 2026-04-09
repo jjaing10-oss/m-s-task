@@ -4687,8 +4687,8 @@ const MON_MANUAL={
 // ── MON_MANUAL 저장/복원 ──
 const MON_LS = 'ktms_mon_manual_v4_2027e'; // v4: pl_adj 기반 full-computation 오차 수정
 function _monSave(){
-  try{ localStorage.setItem(MON_LS, JSON.stringify({mm:MON_MANUAL, wu:W_UNIT_MON})); }
-  catch(e){ console.warn('_monSave 실패',e); }
+  if(!_lsTrySave(MON_LS, JSON.stringify({mm:MON_MANUAL, wu:W_UNIT_MON})))
+    console.warn('_monSave 실패: localStorage 용량 초과');
 }
 function _monLoad(){
   try{
@@ -10593,6 +10593,49 @@ function updateTdVsSimCard(){
 }
 
 // ⑤ 시나리오 저장/불러오기 ─────────────────────────────────────
+// ★ localStorage 용량 관리 유틸리티
+function _lsUsage(){
+  let total=0;
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    total+=(k.length+localStorage.getItem(k).length)*2; // UTF-16 bytes
+  }
+  return total;
+}
+function _lsCleanup(aggressive){
+  // 1. 구버전 레거시 키 삭제
+  const legacyPrefixes=['ktms_ce_v7','ktms_mon_manual_v3','ktms_mon_manual_v2','ktms_sim_snap_v','ktms_scenarios_v9'];
+  for(let i=localStorage.length-1;i>=0;i--){
+    const k=localStorage.key(i);
+    if(k && legacyPrefixes.some(p=>k.startsWith(p) && k!==CE_LS && k!==MON_LS && k!==SCENARIO_LS))
+      try{localStorage.removeItem(k);}catch(_){}
+  }
+  // 2. 편집 히스토리 축소
+  try{
+    const h=JSON.parse(localStorage.getItem('ktms_edit_history_v92')||'[]');
+    if(h.length>20) localStorage.setItem('ktms_edit_history_v92',JSON.stringify(h.slice(-20)));
+  }catch(_){}
+  // 3. aggressive: 스냅샷 1개만 유지
+  if(aggressive){
+    try{
+      const snaps=_getSnapshots();
+      if(snaps.length>1) _setSnapshots(snaps.slice(0,1));
+    }catch(_){}
+  }
+}
+function _lsTrySave(key,val){
+  try{ localStorage.setItem(key,val); return true; }
+  catch(e){
+    if(e.name==='QuotaExceededError'||e.code===22||e.code===1014){
+      _lsCleanup(false);
+      try{ localStorage.setItem(key,val); return true; }catch(_){}
+      _lsCleanup(true);
+      try{ localStorage.setItem(key,val); return true; }catch(_){}
+      return false;
+    }
+    return false;
+  }
+}
 const SCENARIO_LS = 'ktms_scenarios_v92';
 const SCENARIO_SLOTS = 3;
 function _scenarioSave(slot){
@@ -10620,7 +10663,11 @@ function _scenarioSave(slot){
         opm: _pl.tot.rev_ann ? (_pl.tot.op_ann/_pl.tot.rev_ann*100) : 0,
       },
     };
-    localStorage.setItem(SCENARIO_LS, JSON.stringify(all));
+    const json=JSON.stringify(all);
+    if(!_lsTrySave(SCENARIO_LS,json)){
+      alert('⚠️ 저장 용량 초과!\n설정 → 초기화 버튼으로 불필요 데이터를 정리하거나,\n기존 시나리오를 삭제 후 다시 시도하세요.\n\n현재 사용량: '+((_lsUsage()/1024/1024).toFixed(1))+'MB / 5MB');
+      return;
+    }
     _scenarioRenderBtns();
     _toast(`💾 「${name}」 저장 완료 (${_autoTag})`, '#059669');
   }catch(e){alert('저장 실패: '+e.message);}
@@ -22793,6 +22840,10 @@ function downloadXlsx(){
 }
 
 
+const SNAP_LS = 'ktms_full_snapshots_v92';
+const SNAP_LS_LEGACY = 'ktms_snapshot_legacy';
+const SNAP_MAX = 5;
+
 function _fmtSnapLabel(ts){
   try{
     const d = new Date(ts);
@@ -22905,7 +22956,16 @@ function saveFullSnapshot(){
       setTimeout(()=>{ btn.textContent=orig; btn.style.background=origBg || 'rgba(16,185,129,.15)'; }, 1400);
     });
     _renderSnapshotList();
-  } catch(e){ alert('저장 실패: localStorage 용량 부족일 수 있습니다.'); }
+  } catch(e){
+    // QuotaExceeded 처리
+    _lsCleanup(true);
+    try{
+      let snaps2=_getSnapshots(); snaps2.unshift(snap); snaps2=snaps2.slice(0,2);
+      _setSnapshots(snaps2); _renderSnapshotList();
+    }catch(_){
+      alert('⚠️ 저장 용량 초과! 기존 스냅샷을 삭제하거나 초기화 후 다시 시도하세요.\n사용량: '+((_lsUsage()/1024/1024).toFixed(1))+'MB / 5MB');
+    }
+  }
 }
 
 function loadSnapshotByIndex(idx){
@@ -24293,8 +24353,10 @@ function _ceLoad(){
   }catch(e){ _CE={}; }
 }
 function _ceSave(){
-  try{ localStorage.setItem(CE_LS, JSON.stringify(_CE)); }
-  catch(e){}
+  const json=JSON.stringify(_CE);
+  if(!_lsTrySave(CE_LS,json)){
+    console.warn('CE 저장 실패: localStorage 용량 초과');
+  }
   _ceUpdateBadge();
   _recordEditTs('ce');
 }
