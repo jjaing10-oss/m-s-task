@@ -4533,6 +4533,19 @@ const MIDTERM_PLAN = {
     gp:261047, labor:147343, mkt:42841, dep:7339,
     sga_fixed:44940, sga:242463, op:18583,
     capa:715000, capex:8000,
+    // 유통플랫폼 v7.81 목표 (26E×전사성장률 1.078 기반)
+    dist_rev:64433, dist_cogs:49375, dist_gp:15058,
+    dist_labor:1737, dist_rent:179, dist_fee:3587, dist_promo:1000,
+    dist_transport:104, dist_opex:531, dist_dep:35, dist_sga:7173,
+    dist_op:7885, dist_prod:59889, dist_pol:3373, dist_etc:1180,
+    dist_cogs_p:22040, dist_cogs_s:27335,
+    // 기타운영비 세부
+    rent:5711, opex:41829,
+    ox_fee:19544, ox_mtg:2090, ox_trn:1335, ox_edu:783,
+    ox_tel:470, ox_sup:573, ox_ent:3021, ox_ins:3040,
+    ox_tax:4070, ox_car:2618, ox_trv:1240, ox_bk:320,
+    // 인건비 세부
+    lb_gen:20384, lb_sal:84946, lb_ret:12834, lb_wel:37105,
   },
   '2028E': {
     rev:944615, prod:635583, comm:309032, cogs:670364,
@@ -5812,6 +5825,29 @@ function renderDashboard(){
 
 // 2022~2026E 히스토리 + 2026E 시뮬값으로 2027E 선형/YoY 평균 예측
 function get2027EForecast(){
+  // ★ v94: F27.forecast27 존재 시 동기화 — 대시보드와 27E 탭 동일 값 사용
+  if(F27.forecast27){
+    const fc=F27.forecast27;
+    const _g=k=>fc[k]?fc[k].ann:0;
+    const _m=k=>fc[k]?fc[k].mon:Array(12).fill(0);
+    return {
+      rev:_g('rev'), tel_rev:_g('tel_rev')||(_g('rev')-_g('dist_rev')), dist_rev:_g('dist_rev'),
+      cogs:_g('cogs'), tel_cogs:_g('cogs')-_g('dist_cogs'), dist_cogs:_g('dist_cogs'), gp:_g('gp'),
+      labor:_g('labor'), tel_labor:_g('labor')-_g('dist_labor'),
+      gen_salary:_g('lb_gen'), sal_salary:_g('lb_sal'), incentive:_g('lb_inc')||0,
+      reward:_g('lb_rew')||0, retire:_g('lb_ret'), welfare:_g('lb_wel'),
+      mkt:_g('mkt'), sc:_g('sc'), sp:_g('sp'), adv:_g('adv'),
+      rent:_g('rent'), dep:_g('dep'), opex:_g('opex'),
+      sga:_g('sga'), op:_g('op'), tel_op:_g('tel_op')||(_g('op')-_g('dist_op')), dist_op:_g('dist_op'),
+      pol:_g('pol'), mgmt:_g('mgmt'), etc:_g('etc'), comm:_g('pol')+_g('mgmt')+_g('etc'),
+      prod:_g('prod'), capa:F27.params.wirelessCapaTotal||680000,
+      rev_mon:_m('rev'), cogs_mon:_m('cogs'), gp_mon:_m('gp'),
+      labor_mon:_m('labor'), mkt_mon:_m('mkt'), rent_mon:_m('rent'),
+      dep_mon:_m('dep'), opex_mon:_m('opex'), sga_mon:_m('sga'), op_mon:_m('op'),
+      pol_mon:_m('pol'), mgmt_mon:_m('mgmt'), etc_mon:_m('etc'), prod_mon:_m('prod'),
+      _ce:{}, _save:()=>{}
+    };
+  }
   // CE 저장소 (2027E 셀 편집값)
   const _ce27 = {};
   try{ const s=localStorage.getItem('ktms_ce_2027e'); if(s) Object.assign(_ce27, JSON.parse(s)); }catch(_){}
@@ -7981,11 +8017,15 @@ function renderF27Forecast(){
     ${MO.map(mo=>'<th style="'+th+';background:#fff5f5;color:#9f1239;position:sticky;top:0;z-index:2">'+mo+'</th>').join('')}
   </tr></thead><tbody>`;
 
-  const MT27_MAP={rev:'rev',cogs:'cogs',gp:'gp',labor:'labor',mkt:'mkt',dep:'dep',op:'op'};
+  const _mt27=MIDTERM_PLAN['2027E'];
   const _mtVal=(row)=>{
-    if(!row.key||row.key.startsWith('dist_')||row.key.startsWith('lb_')||row.key.startsWith('ox_')) return null;
-    const k=MT27_MAP[row.key]; if(!k) return null;
-    return MIDTERM_PLAN['2027E'][k]||null;
+    if(!row.key||row.unit) return null;
+    // 직접 매핑 (dist_, lb_, ox_ 포함)
+    if(_mt27[row.key]!=null) return _mt27[row.key];
+    // 레거시 매핑
+    const MT27_MAP={rev:'rev',cogs:'cogs',gp:'gp',labor:'labor',mkt:'mkt',dep:'dep',op:'op',rent:'rent',opex:'opex',prod:'prod',sga:'sga'};
+    const k=MT27_MAP[row.key]; if(k && _mt27[k]!=null) return _mt27[k];
+    return null;
   };
   rows.forEach(row=>{
     if(row.sep){html+='<tr><td colspan="19" style="height:4px;background:#f8fafc;border:none"></td></tr>';return;}
