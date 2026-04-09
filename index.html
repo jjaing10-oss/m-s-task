@@ -4720,6 +4720,15 @@ const W_UNIT_MON={
   pol: Array(12).fill(247338),
 };
 
+// ★ v97: 채널별 대당 단가 — 2025 실적(data.json) 기반, 26E 계획 Σ(ch×PU)≈통신상품매출 스케일링
+const W_CH_PU_25 = {도매:12900, 소매:899582, 소상공인:899582, 디지털:1126230, 기업:451068, Biz:4696142};
+const W_CH_PU_26 = {도매:13737, 소매:957878, 소상공인:957878, 디지털:1199339, 기업:480261, Biz:5001057};
+const W_CH_CU_25 = {도매:6856, 소매:1026572, 소상공인:1026572, 디지털:1221828, 기업:821647, Biz:5148984};
+const W_CH_CU_26 = {도매:7030, 소매:1052612, 소상공인:1052612, 디지털:1252821, 기업:842489, Biz:5279595};
+const W_CH_PROD_25 = {도매:3752, 소매:177126, 소상공인:1743, 디지털:141599, 기업:4342, Biz:83028}; // 채널별 상품매출 2025
+const W_CH_COGS_25 = {도매:1994, 소매:202130, 소상공인:2006, 디지털:153618, 기업:7910, Biz:89201}; // 채널별 매출원가 2025
+const W_CH_NO_IOT = ['도매','소매','소상공인','디지털','기업','Biz'];
+
 // 기타 수수료 — 26E 소스 월별 패턴 포함 (균등 배분 대신 실제 증감 패턴 사용)
 const W_ETC_DEF=[
   // ★ v66 교정: mon26 = 엑셀 무선 시트 해당 행 월별 직접 추출
@@ -6977,10 +6986,10 @@ function f27ComputeMerged26(){
   merged.dist_gp = Array(12).fill(0).map((_,i) => (merged.dist_rev[i]||0) - (merged.dist_cogs[i]||0));
   // 마케팅 = sc + sp + adv
   merged.mkt = Array(12).fill(0).map((_,i) => ((merged.sc||[])[i]||0) + ((merged.sp||[])[i]||0) + ((merged.adv||[])[i]||0));
-  // 인건비 = 세부 합산
+  // 인건비 = 세부 합산 (★ 도급비 lb_con 제외 — P&L 인건비 합계 밖)
   merged.labor = Array(12).fill(0).map((_,i) => {
     return ((merged.lb_gen||[])[i]||0)+((merged.lb_sal||[])[i]||0)+((merged.lb_inc||[])[i]||0)
-      +((merged.lb_con||[])[i]||0)+((merged.lb_rew||[])[i]||0)+((merged.lb_ret||[])[i]||0)+((merged.lb_wel||[])[i]||0);
+      +((merged.lb_rew||[])[i]||0)+((merged.lb_ret||[])[i]||0)+((merged.lb_wel||[])[i]||0);
   });
   // 기타운영비 = 세부 합산
   merged.opex = Array(12).fill(0).map((_,i) => {
@@ -8034,32 +8043,33 @@ function f26RenderWireDrivers(){
   var th = 'padding:6px 10px;border:1px solid #dde3ee;font-weight:700;font-size:10.5px;background:#f8fafc;color:#64748b;text-align:center';
   var td = 'border:1px solid #eef2f7;padding:4px 8px;text-align:right;font-size:11px';
 
-  var fc_prod = _mAnn('prod'), fc_pol = _mAnn('pol'), fc_mgmt = _mAnn('mgmt');
+  // ★ v97: simWireless() 호출 — 채널별 live bottom-up 데이터
+  var w = simWireless();
+  var fc_prod = w.prodRevTotal, fc_cogs = w.prodCogsTotal;
+  var fc_pol = w.polFeeTotal, fc_mgmt = w.mgmtRevAnnual;
 
+  // CAPA: sim live 값
   var CAPA25 = {도매:290855,소매:196898,소상공인:1938,디지털:125728,기업:9627,Biz:17324,IoT:72551};
-  var CAPA26 = {도매:291731,소매:206259,소상공인:2073,디지털:137972,기업:12013,Biz:19951,IoT:82221};
+  var CAPA26 = {};
+  W_CH.forEach(function(ch){ CAPA26[ch] = (w.capaMon[ch]||[]).reduce(function(a,b){return a+b;},0); });
   var tot25 = Object.values(CAPA25).reduce(function(a,b){return a+b;},0);
-  var tot26 = Object.values(CAPA26).reduce(function(a,b){return a+b;},0);
+  var tot26 = W_CH.reduce(function(a,ch){return a+(CAPA26[ch]||0);},0);
   var tot25noIoT = tot25 - CAPA25.IoT;
-  var tot26noIoT = tot26 - CAPA26.IoT;
+  var tot26noIoT = tot26 - (CAPA26.IoT||0);
 
-  var UNIT25 = {prod:685000, cogs:740000, pol:235000};
-  // ★ v95: 대당단가를 merged26에서 실시간 계산
-  var _totalCapa26 = tot26noIoT; // 비IoT CAPA
-  var UNIT26 = {
-    prod: _totalCapa26 ? Math.round(fc_prod / _totalCapa26 * 1e6) : 708268,
-    cogs: _totalCapa26 ? Math.round(_mAnn('cogs') / _totalCapa26 * 1e6) : 760673,
-    pol:  _totalCapa26 ? Math.round(fc_pol / _totalCapa26 * 1e6) : 247338
+  // ★ 대당단가: sim bottom-up 결과에서 역산
+  var UNIT26_SIM = {
+    prod: tot26noIoT ? Math.round(fc_prod / tot26noIoT * 1e6) : 708268,
+    cogs: tot26noIoT ? Math.round(fc_cogs / tot26noIoT * 1e6) : 760673,
+    pol:  tot26noIoT ? Math.round(fc_pol / tot26noIoT * 1e6) : 247338
   };
   var UNIT26_PLAN = {prod:708268, cogs:760673, pol:247338};
-
-  var FEE26 = {도매:5100,소매:2635,소상공인:2125,디지털:4734,기업:3740,Biz:2125};
-  var FEE25 = {도매:4800,소매:2550,소상공인:2050,디지털:4500,기업:3500,Biz:2050};
-  var ACT26 = {도매:40000,소매:748000,소상공인:20300,디지털:62000,기업:44500,Biz:82000};
-  var CHURN = {도매:.05,소매:.037,소상공인:.026,디지털:.02,기업:.023,Biz:.021};
+  var UNIT25 = {prod:685000, cogs:740000, pol:235000};
 
   var tabBtns = _f26TabBtns('wire');
-  var capaRows = Object.keys(CAPA26).map(function(ch){
+
+  // ── 1. 채널별 CAPA ──
+  var capaRows = W_CH.map(function(ch){
     var v25=CAPA25[ch]||0, v26=CAPA26[ch]||0;
     var gr=v25?((v26/v25-1)*100).toFixed(1)+'%':'—';
     return '<tr><td style="'+td+';text-align:left">'+ch+'</td>'
@@ -8070,16 +8080,90 @@ function f26RenderWireDrivers(){
   capaRows += '<tr style="background:#f8fafc;font-weight:700"><td style="'+td+';text-align:left">합계(비IoT)</td>'
     +'<td style="'+td+';color:var(--t3)">'+fmt(tot25noIoT)+'</td>'
     +'<td style="'+td+';font-weight:800">'+fmt(tot26noIoT)+'</td>'
-    +'<td style="'+td+';color:#059669">+'+((tot26noIoT/tot25noIoT-1)*100).toFixed(1)+'%</td></tr>';
-  capaRows += '<tr style="background:#eff6ff;font-weight:700"><td style="'+td+';text-align:left">총합계</td>'
-    +'<td style="'+td+';color:var(--t3)">'+fmt(tot25)+'</td>'
-    +'<td style="'+td+';font-weight:800;color:#1d4ed8">'+fmt(tot26)+'</td>'
-    +'<td style="'+td+';color:#059669">+'+((tot26/tot25-1)*100).toFixed(1)+'%</td></tr>';
+    +'<td style="'+td+';color:#059669">+'+((tot26noIoT/Math.max(tot25noIoT,1)-1)*100).toFixed(1)+'%</td></tr>';
 
-  var unitRows = [
-    ['대당매출(원/건)', UNIT25.prod, UNIT26.prod, UNIT26_PLAN.prod],
-    ['대당원가(원/건)', UNIT25.cogs, UNIT26.cogs, UNIT26_PLAN.cogs],
-    ['대당정책(원/건)', UNIT25.pol, UNIT26.pol, UNIT26_PLAN.pol],
+  // ── 2. 채널별 대당매출 & 상품매출 Bottom-up ──
+  var chProdTotal = 0, chCogsTotal = 0;
+  W_CH_NO_IOT.forEach(function(ch){
+    chProdTotal += (w.prodRevByCh[ch]||[]).reduce(function(a,b){return a+b;},0);
+    chCogsTotal += (w.prodCogsByCh[ch]||[]).reduce(function(a,b){return a+b;},0);
+  });
+  var chProdRows = W_CH_NO_IOT.map(function(ch){
+    var pu25 = W_CH_PU_25[ch]||0, pu26 = w.chPU[ch]||0;
+    var cu25 = W_CH_CU_25[ch]||0, cu26 = w.chCU[ch]||0;
+    var capa26 = CAPA26[ch]||0;
+    var prod26 = (w.prodRevByCh[ch]||[]).reduce(function(a,b){return a+b;},0);
+    var cogs26 = (w.prodCogsByCh[ch]||[]).reduce(function(a,b){return a+b;},0);
+    var share = chProdTotal ? (prod26/chProdTotal*100).toFixed(1) : '0.0';
+    var isDome = ch==='도매';
+    var rowBg = isDome ? 'background:rgba(234,179,8,.06)' : '';
+    return '<tr style="'+rowBg+'"><td style="'+td+';text-align:left;font-weight:'+(isDome?700:400)+'">'+ch+(isDome?' ⚠':'')+'</td>'
+      +'<td style="'+td+';color:var(--t3)">'+fmt(pu25)+'</td>'
+      +'<td style="'+td+';font-weight:600;color:#1d4ed8">'+fmt(pu26)+'</td>'
+      +'<td style="'+td+';color:var(--t3)">'+fmt(cu25)+'</td>'
+      +'<td style="'+td+';font-weight:600;color:#dc2626">'+fmt(cu26)+'</td>'
+      +'<td style="'+td+'">'+fmt(capa26)+'</td>'
+      +'<td style="'+td+';font-weight:600">'+fmt(prod26)+'</td>'
+      +'<td style="'+td+';font-weight:600;color:#dc2626">'+fmt(cogs26)+'</td>'
+      +'<td style="'+td+';color:var(--ac2)">'+share+'%</td></tr>';
+  }).join('');
+  // 전사 합계
+  chProdRows += '<tr style="background:#eff6ff;font-weight:700"><td style="'+td+';text-align:left">전사 가중평균</td>'
+    +'<td style="'+td+';color:var(--t3)">'+fmt(UNIT25.prod)+'</td>'
+    +'<td style="'+td+';color:#1d4ed8;font-weight:800">'+fmt(UNIT26_SIM.prod)+'</td>'
+    +'<td style="'+td+';color:var(--t3)">'+fmt(UNIT25.cogs)+'</td>'
+    +'<td style="'+td+';color:#dc2626;font-weight:800">'+fmt(UNIT26_SIM.cogs)+'</td>'
+    +'<td style="'+td+'">'+fmt(tot26noIoT)+'</td>'
+    +'<td style="'+td+';font-weight:800">'+fmt(chProdTotal)+'</td>'
+    +'<td style="'+td+';font-weight:800;color:#dc2626">'+fmt(chCogsTotal)+'</td>'
+    +'<td style="'+td+'">100%</td></tr>';
+  // 목표 대비
+  var prodDiff = chProdTotal - PLAN_TEL_FULL.prod.ann;
+  var cogsDiff = chCogsTotal - PLAN_TEL_FULL.cogs.ann;
+  chProdRows += '<tr style="background:#fafafa"><td style="'+td+';text-align:left;color:var(--t3);font-style:italic">목표(KT제출)</td>'
+    +'<td style="'+td+'"></td><td style="'+td+';color:var(--t3)">'+fmt(UNIT26_PLAN.prod)+'</td>'
+    +'<td style="'+td+'"></td><td style="'+td+';color:var(--t3)">'+fmt(UNIT26_PLAN.cogs)+'</td>'
+    +'<td style="'+td+'"></td>'
+    +'<td style="'+td+';color:var(--t3)">'+fmt(PLAN_TEL_FULL.prod.ann)+'</td>'
+    +'<td style="'+td+';color:var(--t3)">'+fmt(PLAN_TEL_FULL.cogs.ann)+'</td>'
+    +'<td style="'+td+'"></td></tr>';
+  chProdRows += '<tr style="background:#fafafa"><td style="'+td+';text-align:left;color:var(--t3);font-style:italic">시뮬vs목표</td>'
+    +'<td style="'+td+'"></td><td style="'+td+';color:'+(UNIT26_SIM.prod>=UNIT26_PLAN.prod?'#d97706':'#059669')+'">'+(UNIT26_SIM.prod>=UNIT26_PLAN.prod?'+':'')+fmt(UNIT26_SIM.prod-UNIT26_PLAN.prod)+'</td>'
+    +'<td style="'+td+'"></td><td style="'+td+';color:'+(UNIT26_SIM.cogs>=UNIT26_PLAN.cogs?'#d97706':'#059669')+'">'+(UNIT26_SIM.cogs>=UNIT26_PLAN.cogs?'+':'')+fmt(UNIT26_SIM.cogs-UNIT26_PLAN.cogs)+'</td>'
+    +'<td style="'+td+'"></td>'
+    +'<td style="'+td+';color:'+(prodDiff>=0?'#059669':'#dc2626')+';font-weight:600">'+(prodDiff>=0?'+':'')+fmt(prodDiff)+'</td>'
+    +'<td style="'+td+';color:'+(cogsDiff<=0?'#059669':'#dc2626')+';font-weight:600">'+(cogsDiff>=0?'+':'')+fmt(cogsDiff)+'</td>'
+    +'<td style="'+td+'"></td></tr>';
+
+  // ── 3. 채널별 관리수수료 (live sim) ──
+  var mgmtTotal = w.mgmtRevAnnual||0;
+  var mgmtRows = w.activeChannels.map(function(ch){
+    var actAvg = Math.round((w.active[ch]||[]).reduce(function(a,b){return a+b;},0)/12);
+    var feeUnit = w.fee[ch]||0;
+    var mgmtAnn = Math.round((w.관리수수료[ch]||[]).reduce(function(a,b){return a+b;},0));
+    var share = mgmtTotal ? (mgmtAnn/mgmtTotal*100).toFixed(1) : '0.0';
+    return '<tr><td style="'+td+';text-align:left">'+ch+'</td>'
+      +'<td style="'+td+'">'+fmt(actAvg)+'</td>'
+      +'<td style="'+td+';font-weight:600">'+fmt(feeUnit)+'</td>'
+      +'<td style="'+td+';font-weight:700;color:#1d4ed8">'+fmt(mgmtAnn)+'</td>'
+      +'<td style="'+td+';color:var(--ac2)">'+share+'%</td></tr>';
+  }).join('');
+  // 기타 (H/C, Win-win, 플라자 등)
+  var etcTotal = w.etcTotal||0;
+  mgmtRows += '<tr style="background:#fafafa"><td style="'+td+';text-align:left;color:var(--t3)">기타(H/C·Win-win·플라자 등)</td>'
+    +'<td style="'+td+'"></td><td style="'+td+'"></td>'
+    +'<td style="'+td+';font-weight:600;color:var(--t3)">'+fmt(etcTotal)+'</td>'
+    +'<td style="'+td+'"></td></tr>';
+  mgmtRows += '<tr style="background:#eff6ff;font-weight:700"><td style="'+td+';text-align:left">관리수수료 합계</td>'
+    +'<td style="'+td+'"></td><td style="'+td+'"></td>'
+    +'<td style="'+td+';font-weight:800;color:#1d4ed8">'+fmt(mgmtTotal+etcTotal)+'</td>'
+    +'<td style="'+td+'">100%</td></tr>';
+
+  // ── 4. 대당 단가 총괄 (전사 PU/CU/POL) ──
+  var unitSummary = [
+    ['대당매출(원/건)', UNIT25.prod, UNIT26_SIM.prod, UNIT26_PLAN.prod],
+    ['대당원가(원/건)', UNIT25.cogs, UNIT26_SIM.cogs, UNIT26_PLAN.cogs],
+    ['대당정책(원/건)', UNIT25.pol, UNIT26_SIM.pol, UNIT26_PLAN.pol],
   ].map(function(r){
     var d=r[2]-r[3]; var pct=r[3]?((d/r[3])*100).toFixed(1)+'%':'—';
     return '<tr><td style="'+td+';text-align:left">'+r[0]+'</td>'
@@ -8089,40 +8173,59 @@ function f26RenderWireDrivers(){
       +'<td style="'+td+';color:'+(d>=0?'#d97706':'#059669')+'">'+(d>=0?'+':'')+fmt(d)+' ('+pct+')</td></tr>';
   }).join('');
 
-  var feeRows = Object.keys(FEE26).map(function(ch){
-    var v25=FEE25[ch]||0, v26=FEE26[ch]||0;
-    var act=ACT26[ch]||0; var mgmt26=Math.round(act*v26*12/1e6);
-    return '<tr><td style="'+td+';text-align:left">'+ch+'</td>'
-      +'<td style="'+td+';color:var(--t3)">'+fmt(v25)+'</td>'
-      +'<td style="'+td+';font-weight:700">'+fmt(v26)+'</td>'
-      +'<td style="'+td+'">'+fmt(act)+'</td>'
-      +'<td style="'+td+';color:var(--t3)">'+fmt(CHURN[ch]*100)+'%</td>'
-      +'<td style="'+td+';font-weight:600">'+fmt(mgmt26)+'</td></tr>';
-  }).join('');
+  // 도매 Win-Win 영향 배너
+  var domeShare26 = tot26noIoT ? ((CAPA26['도매']||0)/tot26noIoT*100).toFixed(1) : '0';
+  var domeShare25 = tot25noIoT ? (CAPA25['도매']/tot25noIoT*100).toFixed(1) : '0';
+  var domeProd26 = (w.prodRevByCh['도매']||[]).reduce(function(a,b){return a+b;},0);
 
   return '<div style="max-width:1400px;margin:0 auto">'
   +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">'+tabBtns+'</div>'
-  +'<div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:11px">'
-  +'📌 <b>P&L 연동값</b> — 상품매출 26E: <b>'+fmt(fc_prod)+'</b>백만 / 관리수수료: <b>'+fmt(fc_mgmt)+'</b>백만 / 정책수수료: <b>'+fmt(fc_pol)+'</b>백만'
-  +'<span style="color:var(--t3);margin-left:8px">BM실적 반영시 자동 갱신</span></div>'
-  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">'
-  +'<div class="card" style="padding:14px">'
-  +'<div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px">📱 채널별 CAPA 현황 (26E 계획)</div>'
+  // P&L 연동 배너
+  +'<div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:11px">'
+  +'📌 <b>P&L 연동(bottom-up)</b> — 상품매출: <b>'+fmt(fc_prod)+'</b> / 매출원가: <b>'+fmt(fc_cogs)+'</b> / 관리수수료: <b>'+fmt(mgmtTotal+etcTotal)+'</b> / 정책수수료: <b>'+fmt(fc_pol)+'</b>'
+  +'<span style="color:var(--t3);margin-left:8px">채널 CAPA·단가 변경시 자동 갱신</span></div>'
+  // 도매 Win-Win 경고
+  +'<div style="background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.3);border-radius:8px;padding:6px 14px;margin-bottom:12px;font-size:10.5px">'
+  +'⚠ <b>도매(Win-Win) 영향</b> — 도매 CAPA '+fmt(CAPA26['도매']||0)+'건(비중 '+domeShare26+'%) 대당매출 <b>'+fmt(w.chPU['도매']||0)+'원</b>'
+  +' (소매 대비 '+(w.chPU['소매']?((w.chPU['도매']||0)/w.chPU['소매']*100).toFixed(1):'?')+'%) → 도매 상품매출 '+fmt(domeProd26)+'백만'
+  +' <span style="color:#92400e">(전사의 '+(chProdTotal?(domeProd26/chProdTotal*100).toFixed(1):'0')+'%)</span></div>'
+  // Grid: CAPA + 대당매출 bottom-up
+  +'<div style="display:grid;grid-template-columns:auto 1fr;gap:12px;margin-bottom:12px">'
+  // Left: CAPA
+  +'<div class="card" style="padding:14px;min-width:320px">'
+  +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">📱 채널별 CAPA</div>'
   +'<table class="tbl" style="font-size:11px;width:100%"><thead><tr>'
-  +'<th style="'+th+';text-align:left;min-width:80px">채널</th>'
+  +'<th style="'+th+';text-align:left;min-width:70px">채널</th>'
   +'<th style="'+th+'">25년</th><th style="'+th+';color:#1d4ed8">26E</th><th style="'+th+'">YoY</th></tr></thead>'
   +'<tbody>'+capaRows+'</tbody></table></div>'
+  // Right: 채널별 대당매출 & 상품매출
   +'<div class="card" style="padding:14px">'
-  +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">💰 대당 단가 현황 <span style="font-size:10px;color:var(--t3)">시뮬값 = merged26÷CAPA</span></div>'
-  +'<table class="tbl" style="font-size:11px;width:100%"><thead><tr>'
-  +'<th style="'+th+';text-align:left">항목</th><th style="'+th+'">25년</th><th style="'+th+'">26E목표</th><th style="'+th+';color:#1d4ed8">26E시뮬</th><th style="'+th+'">시뮬vs목표</th></tr></thead>'
-  +'<tbody>'+unitRows+'</tbody></table></div></div>'
+  +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">💰 채널별 대당매출·원가 & 상품매출·원가 (Bottom-up)</div>'
+  +'<table class="tbl" style="font-size:10.5px;width:100%"><thead><tr>'
+  +'<th style="'+th+';text-align:left;min-width:70px">채널</th>'
+  +'<th style="'+th+'">25 PU</th><th style="'+th+';color:#1d4ed8">26E PU</th>'
+  +'<th style="'+th+'">25 CU</th><th style="'+th+';color:#dc2626">26E CU</th>'
+  +'<th style="'+th+'">26E CAPA</th>'
+  +'<th style="'+th+'">상품매출(M)</th><th style="'+th+';color:#dc2626">매출원가(M)</th>'
+  +'<th style="'+th+'">비중</th></tr></thead>'
+  +'<tbody>'+chProdRows+'</tbody></table></div></div>'
+  // 하단: 관리수수료 + 대당 단가 총괄
+  +'<div style="display:grid;grid-template-columns:1fr auto;gap:12px">'
+  // Left: 관리수수료
   +'<div class="card" style="padding:14px">'
-  +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">🏷 관리수수료 드라이버 (Active×단가×12)</div>'
+  +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">🏷 채널별 관리수수료 (26E 시뮬)</div>'
   +'<table class="tbl" style="font-size:11px;width:100%"><thead><tr>'
-  +'<th style="'+th+';text-align:left">채널</th><th style="'+th+'">25 단가</th><th style="'+th+';color:#1d4ed8">26E 단가</th>'
-  +'<th style="'+th+'">Active(건)</th><th style="'+th+'">해지율</th><th style="'+th+'">연간수수료(백만)</th></tr></thead>'
-  +'<tbody>'+feeRows+'</tbody></table></div></div>';
+  +'<th style="'+th+';text-align:left">채널</th><th style="'+th+'">평균Active</th>'
+  +'<th style="'+th+';color:#1d4ed8">단가(원/월)</th>'
+  +'<th style="'+th+'">연간수수료(M)</th><th style="'+th+'">비중</th></tr></thead>'
+  +'<tbody>'+mgmtRows+'</tbody></table></div>'
+  // Right: 대당 단가 총괄
+  +'<div class="card" style="padding:14px;min-width:360px">'
+  +'<div style="font-size:12px;font-weight:700;margin-bottom:10px">📊 전사 대당 단가 총괄</div>'
+  +'<table class="tbl" style="font-size:11px;width:100%"><thead><tr>'
+  +'<th style="'+th+';text-align:left">항목</th><th style="'+th+'">25년</th>'
+  +'<th style="'+th+'">26E목표</th><th style="'+th+';color:#1d4ed8">26E시뮬</th><th style="'+th+'">시뮬vs목표</th></tr></thead>'
+  +'<tbody>'+unitSummary+'</tbody></table></div></div></div>';
 }
 
 // ============================================================
@@ -8157,9 +8260,10 @@ function f26RenderLaborInfra(){
     {l:'복리후생비(백만)',       v25:LB25.wel, plan:LP.welfare.ann,    sim:lb_wel26},
     {l:'포상비(백만)',          v25:LB25.rew, plan:LP.reward.ann,     sim:lb_rew26},
     {l:'특별격려금(백만)',      v25:LB25.inc, plan:LP.incentive.ann,  sim:lb_inc26},
-    {l:'도급비(백만)',          v25:LB25.con, plan:LP.contract.ann,   sim:lb_con26},
     {sep:true},
     {l:'인건비 합계(백만)',      v25:LB25.total, plan:lbPlan, sim:lb26, bold:true, highlight:true},
+    {sep:true},
+    {l:'도급비(별도, P&L 밖)',  v25:LB25.con, plan:LP.contract.ann,   sim:lb_con26, note:true},
   ];
 
   var gen_hc=195, sal_hc=1940, hc_total=gen_hc+sal_hc;
@@ -8178,11 +8282,12 @@ function f26RenderLaborInfra(){
     var diff=(r.sim||0)-(r.plan||0);
     var pct=r.plan?((diff/Math.abs(r.plan))*100).toFixed(1)+'%':'—';
     var fv=function(v){return typeof v==='number'&&Math.abs(v)<1000?v.toFixed(1):fmt(Math.round(v||0));};
-    return '<tr style="'+(r.highlight?'background:rgba(228,0,43,.04)':'')+'"><td style="'+td+';text-align:left;font-weight:'+(r.bold?700:400)+'">'+r.l+'</td>'
-      +'<td style="'+td+';color:var(--t3)">'+fv(r.v25||0)+'</td>'
-      +'<td style="'+td+';color:var(--t3)">'+fv(r.plan||0)+'</td>'
-      +'<td style="'+td+';background:rgba(37,99,235,.06);font-weight:700;color:#1d4ed8">'+fv(r.sim||0)+'</td>'
-      +'<td style="'+td+';color:'+(diff>=0?'#d97706':'#059669')+';font-weight:600">'+(diff>=0?'+':'')+fv(diff)+' ('+pct+')</td></tr>';
+    var noteStyle=r.note?'font-style:italic;color:#94a3b8;':'';
+    return '<tr style="'+(r.highlight?'background:rgba(228,0,43,.04)':r.note?'background:#fafafa':'')+'"><td style="'+td+';text-align:left;font-weight:'+(r.bold?700:400)+';'+noteStyle+'">'+r.l+'</td>'
+      +'<td style="'+td+';color:var(--t3);'+noteStyle+'">'+fv(r.v25||0)+'</td>'
+      +'<td style="'+td+';color:var(--t3);'+noteStyle+'">'+fv(r.plan||0)+'</td>'
+      +'<td style="'+td+';background:rgba(37,99,235,.06);font-weight:700;color:#1d4ed8;'+noteStyle+'">'+fv(r.sim||0)+'</td>'
+      +'<td style="'+td+';color:'+(diff>=0?'#d97706':'#059669')+';font-weight:600;'+noteStyle+'">'+(diff>=0?'+':'')+fv(diff)+' ('+pct+')</td></tr>';
   };
 
   var labDiff = lb26 - lbPlan;
@@ -12908,6 +13013,15 @@ function plTable(rows26E, hRows, H_ref){
 
     // ★ v93: 대당/인당 파생 행 — 별도 렌더
     if(r.derived){
+      if(r.isHeader){
+        // ★ v97: 채널별 그룹 헤더 행 (값 없이 라벨만 표시)
+        tbl+=`<tr class="${r.cls||'r-unit'}"><td style="font-weight:600;font-size:9.5px;color:#7c3aed">${r.l}</td>`;
+        YRS.forEach(()=>tbl+=`<td style="color:#c4b5fd">—</td>`);
+        tbl+=`<td></td>`;
+        if(show27E) tbl+=`<td></td>`;
+        tbl+=`<td></td><td></td></tr>`;
+        continue;
+      }
       const _uv = r.v26||0;
       const _uf = typeof _uv==='number'&&_uv>=1000 ? Math.round(_uv).toLocaleString('ko-KR') : (typeof _uv==='number'? _uv.toLocaleString('ko-KR',{maximumFractionDigits:1}) : _uv);
       tbl+=`<tr class="${r.cls||'r-unit'}"><td>${r.l}</td>`;
@@ -13227,23 +13341,45 @@ function renderPL(){
     const _lbRewAnn = lb.reward_ann;
     const _lbRetAnn = lb.retire_ann;
     const _lbWelAnn = lb.welfare_ann;
+    // ★ v97: 채널별 상품매출·원가 — simWireless() bottom-up 데이터 사용
+    const _chProdRows = W_CH_NO_IOT.map(ch => {
+      const prodAnn = (_wSim.prodRevByCh?.[ch]||[]).reduce((a,b)=>a+b,0);
+      return {l:'      '+ch, hk:null, v26:prodAnn, mon26:(_wSim.prodRevByCh?.[ch]||null), cls:'r-unit-ch', derived:true, unitLabel:'백만'};
+    });
+    const _chCogRows = W_CH_NO_IOT.map(ch => {
+      const cogsAnn = (_wSim.prodCogsByCh?.[ch]||[]).reduce((a,b)=>a+b,0);
+      return {l:'      '+ch, hk:null, v26:cogsAnn, mon26:(_wSim.prodCogsByCh?.[ch]||null), cls:'r-unit-ch', derived:true, unitLabel:'백만'};
+    });
+    // 채널별 관리수수료 행
+    const _chMgmtRows = _wSim.activeChannels.map(ch => {
+      const mgmtAnn = Math.round((_wSim.관리수수료[ch]||[]).reduce((a,b)=>a+b,0));
+      return {l:'        '+ch, hk:null, v26:mgmtAnn, mon26:_wSim.관리수수료[ch]?.map(v=>Math.round(v))||null, cls:'r-unit-ch', derived:true, unitLabel:'백만'};
+    });
     rows26E=[
       {l:'I. 매출',               hk:'rev',   v26:s.tel.rev_ann,          mon26:s.tel.rev_mon,     cls:'r-tot'},
       {l:'  상품매출',             hk:'prod',  v26:s.tel.prod_ann,         mon26:s.tel.prod_mon,    lnk:true, cls:'r-sub'},
-      {l:'    └ 대당매출',         hk:null,    v26:_unitCalc(s.tel.prod_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
-      {l:'      도매 대당매출',    hk:null,    v26:_unitCalc(s.tel.prod_ann*(_capaChAnn['도매']||0)/_capaNoIoT, _capaChAnn['도매']||1), mon26:null, cls:'r-unit-ch', derived:true},
-      {l:'      소매 대당매출',    hk:null,    v26:_unitCalc(s.tel.prod_ann*(_capaChAnn['소매']||0)/_capaNoIoT, _capaChAnn['소매']||1), mon26:null, cls:'r-unit-ch', derived:true},
+      {l:'    └ 대당매출(가중평균)',hk:null,    v26:_unitCalc(s.tel.prod_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'    └ 채널별 대당매출',   hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      ...W_CH_NO_IOT.map(ch => ({l:'        '+ch, hk:null, v26:_wSim.chPU?.[ch]||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'})),
+      {l:'    └ 채널별 상품매출',   hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      ..._chProdRows,
       {l:'  수수료수입',           hk:'comm',  v26:s.tel.comm_ann,         mon26:s.tel.comm_mon,    cls:'r-sub'},
       {l:'    정책수수료',         hk:'pol',   v26:s.tel.pol_ann,          mon26:s.tel.pol_mon,     lnk:true, cls:'r-sub2'},
       {l:'      └ 대당정책수수료', hk:null,    v26:_unitCalc(s._drv.w_pol_total, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'      무선 정책수수료', hk:null,    v26:s._drv.w_pol_total,     mon26:s._drv.w_pol_mon,  cls:'r-sub3'},
       {l:'      유선 정책수수료', hk:null,    v26:s._drv.wl_pol_ann,      mon26:s._drv.wl_pol_mon, cls:'r-sub3'},
       {l:'    관리수수료',         hk:'mgmt',  v26:s.tel.mgmt_ann,         mon26:s.tel.mgmt_mon,    lnk:true, cls:'r-sub2'},
+      {l:'      └ 채널별 관리수수료', hk:null, v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      ..._chMgmtRows,
       {l:'      무선 관리수수료', hk:null,    v26:s._drv.w_mgmt_total,    mon26:s._drv.w_mgmt_mon, cls:'r-sub3'},
       {l:'      유선 관리수수료', hk:null,    v26:s._drv.wl_mgmt_total,   mon26:s._drv.wl_mgmt_mon,cls:'r-sub3'},
       {l:'    기타수수료',         hk:'etc',   v26:s.tel.etc_ann,          mon26:s.tel.etc_mon,     lnk:true, cls:'r-sub2'},
       {l:'II. 매출원가',           hk:'cogs',  v26:s.tel.cogs_ann,         mon26:s.tel.cogs_mon,    lnk:true, cls:'r-tot'},
-      {l:'    └ 대당원가',         hk:null,    v26:_unitCalc(s.tel.cogs_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'    └ 대당원가(가중평균)',hk:null,    v26:_unitCalc(s.tel.cogs_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'    └ 채널별 대당원가',   hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      ...W_CH_NO_IOT.map(ch => ({l:'        '+ch, hk:null, v26:_wSim.chCU?.[ch]||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'})),
+      {l:'    └ 채널별 매출원가',   hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      ..._chCogRows,
       {l:'III. 매출총이익',        hk:'gp',    v26:s.tel.gp_ann,           mon26:s.tel.gp_mon,      cls:'r-gp'},
       {l:'    └ 건당판매손익',     hk:null,    v26:_unitCalc(s.tel.gp_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'IV. 판관비',             hk:'sga',   v26:s.tel.sga_ann,          mon26:s.tel.sga_mon,     cls:'r-sga'},
@@ -13314,25 +13450,33 @@ function renderPL(){
     const PD={rev:{ann:dpd.tot.rev,mon:dpd.tot.rev_mon},pol:{ann:dpd.tot.pol||0,mon:dpd.tot.pol_mon||Array(12).fill(0)},etc:{ann:dpd.tot.etc||0,mon:dpd.tot.etc_mon||Array(12).fill(0)}};
     const _lb2GenAnn = Math.round(lb2.gen_mon.reduce((a,b)=>a+b,0));
     const _lb2SalAnn = Math.round(lb2.sal_mon.reduce((a,b)=>a+b,0));
+    // ★ v97: 채널별 상품매출·원가·관리수수료 bottom-up 데이터
+    const _chProdRows2 = W_CH_NO_IOT.map(ch => ({l:'          '+ch, hk:null, v26:(_wSim.prodRevByCh?.[ch]||[]).reduce((a,b)=>a+b,0), mon26:_wSim.prodRevByCh?.[ch]||null, cls:'r-unit-ch', derived:true, unitLabel:'백만'}));
+    const _chCogRows2 = W_CH_NO_IOT.map(ch => ({l:'          '+ch, hk:null, v26:(_wSim.prodCogsByCh?.[ch]||[]).reduce((a,b)=>a+b,0), mon26:_wSim.prodCogsByCh?.[ch]||null, cls:'r-unit-ch', derived:true, unitLabel:'백만'}));
+    const _chMgmtRows2 = _wSim.activeChannels.map(ch => ({l:'          '+ch, hk:null, v26:Math.round((_wSim.관리수수료[ch]||[]).reduce((a,b)=>a+b,0)), mon26:_wSim.관리수수료[ch]?.map(v=>Math.round(v))||null, cls:'r-unit-ch', derived:true, unitLabel:'백만'}));
     rows26E=[
       {l:'I. 매출',                  hk:'rev',   v26:s.tot.rev_ann,                    mon26:s.tot.rev_mon.slice(),                 cls:'r-tot'},
       {l:'  통신 매출',               hk:null,    v26:s.tel.rev_ann,                    mon26:s.tel.rev_mon,                        cls:'r-sub'},
       {l:'    상품매출',              hk:'prod',  v26:s.tel.prod_ann,                   mon26:s.tel.prod_mon,                       lnk:true, cls:'r-sub2'},
-      {l:'      └ 대당매출(전사)',    hk:null,    v26:_unitCalc(s.tel.prod_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
-      {l:'        도매',              hk:null,    v26:WIRELESS_HIST_EXCEL?.['2025']?.rev_unit_wholesale_annual||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'},
-      {l:'        소매',              hk:null,    v26:WIRELESS_HIST_EXCEL?.['2025']?.rev_unit_retail_annual||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'},
-      {l:'        디지털',            hk:null,    v26:WIRELESS_HIST_EXCEL?.['2025']?.rev_unit_digital_annual||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'},
+      {l:'      └ 대당매출(가중평균)',hk:null,    v26:_unitCalc(s.tel.prod_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'        채널별 대당매출',    hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      ...W_CH_NO_IOT.map(ch => ({l:'          '+ch, hk:null, v26:_wSim.chPU?.[ch]||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'})),
+      {l:'        채널별 상품매출',    hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      ..._chProdRows2,
       {l:'    수수료수입',            hk:null,    v26:s.tel.comm_ann,                   mon26:s.tel.comm_mon,                       cls:'r-sub2'},
       {l:'      정책수수료',          hk:'pol',   v26:s.tel.pol_ann+Math.round(PD.pol.ann), mon26:s.tel.pol_mon.map((v,m)=>v+(PD.pol.mon[m]||0)), lnk:true, cls:'r-sub3'},
-      {l:'        └ 대당정책(전사)',  hk:null,    v26:_unitCalc(s._drv?.w_pol_total||0, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
-      {l:'          도매',            hk:null,    v26:WIRELESS_HIST_EXCEL?.['2025']?.pol_unit_wholesale_annual||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'},
-      {l:'          소매',            hk:null,    v26:WIRELESS_HIST_EXCEL?.['2025']?.pol_unit_retail_annual||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'},
+      {l:'        └ 대당정책(가중평균)',hk:null,   v26:_unitCalc(s._drv?.w_pol_total||0, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
       {l:'      관리수수료',          hk:'mgmt',  v26:s.tel.mgmt_ann,                   mon26:s.tel.mgmt_mon,                       lnk:true, cls:'r-sub3'},
-      {l:'        └ 관리수수료 단가', hk:null,    v26:WIRELESS_HIST_EXCEL?.['2025']?.fee_wholesale_annual||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/매장'},
+      {l:'        채널별 관리수수료',  hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      ..._chMgmtRows2,
       {l:'      기타수수료',          hk:'etc',   v26:s.tel.etc_ann+Math.round(PD.etc.ann), mon26:s.tel.etc_mon.map((v,m)=>v+(PD.etc.mon[m]||0)), lnk:true, cls:'r-sub3'},
       {l:'  유통플랫폼 매출',         hk:null,    v26:s.dist.rev_ann,                   mon26:s.dist.rev_mon,                       cls:'r-sub'},
       {l:'II. 매출원가',              hk:'cogs',  v26:s.tot.rev_ann-s.tot.gp_ann,       mon26:s.tot.cogs_mon.slice(),               lnk:true, cls:'r-tot'},
-      {l:'    └ 대당원가(전사)',      hk:null,    v26:_unitCalc(s.tot.rev_ann-s.tot.gp_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'    └ 대당원가(가중평균)',   hk:null,    v26:_unitCalc(s.tot.rev_ann-s.tot.gp_ann, _capaNoIoT), mon26:null, cls:'r-unit', derived:true, unitLabel:'원/건'},
+      {l:'      채널별 대당원가',      hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      ...W_CH_NO_IOT.map(ch => ({l:'          '+ch, hk:null, v26:_wSim.chCU?.[ch]||0, mon26:null, cls:'r-unit-ch', derived:true, unitLabel:'원/건'})),
+      {l:'      채널별 매출원가',      hk:null,    v26:null, mon26:null, cls:'r-unit', derived:true, isHeader:true},
+      ..._chCogRows2,
       {l:'III. 매출총이익',           hk:'gp',    v26:s.tot.gp_ann,                     mon26:s.tot.gp_mon.slice(),                 cls:'r-gp'},
       {l:'IV. 판관비',                hk:'sga',   v26:s.tot.sga_ann,                    mon26:s.tot.sga_mon.slice(),                cls:'r-sga'},
       {l:'  인건비',                  hk:'labor', v26:s.tot.labor_ann,                  mon26:s.tot.labor_mon||s.tel.labor_mon,     lnk:true, cls:'r-sub'},
@@ -13902,7 +14046,6 @@ function simWireless(){
   // ==== 비IoT CAPA 월별 합계 (상품매출·원가·정책수수료 계산용) ====
   // Excel 무선시트 row8 전사CAPA = 670,000 (IoT 별도 row19 = 82,221)
   // 상품매출(row196) = 비IoT CAPA × 대당매출 / 1M → IoT 제외 필수
-  const W_CH_NO_IOT=['도매','소매','소상공인','디지털','기업','Biz'];
   const capaTotalMon_noIoT=[];
   for(let m=0;m<MN;m++){
     let t=0;W_CH_NO_IOT.forEach(ch=>t+=(capaMon[ch]?capaMon[ch][m]:0));
@@ -13924,17 +14067,32 @@ function simWireless(){
   const cu=ceGet('wireless','대당원가단가','2026E','ann',pv('w_cu'));
   const puPol=ceGet('wireless','대당정책수수료','2026E','ann',pv('w_pu_pol'));
   const capaNoIoTAnn=capaTotalMon_noIoT.reduce((a,b)=>a+b,0);
-  // W_UNIT_MON 월별 단가 사용 (월별 수동 수정 반영)
-  const hasPuMon=W_UNIT_MON.pu.some((v,i)=>v!==pu||(MON_MANUAL.pu_mon&&MON_MANUAL.pu_mon.pu[i]!=null));
-  const hasCuMon=W_UNIT_MON.cu.some((v,i)=>v!==cu||(MON_MANUAL.pu_mon&&MON_MANUAL.pu_mon.cu[i]!=null));
+
+  // ★ v97: 채널별 대당매출/원가 bottom-up — CAPA mix 변동 → 상품매출·원가 반영
+  //   도매(Win-Win)는 대당 13,737원 vs 소매 957,878원 → 도매 비중↑ = 전사 상품매출↓
+  const puScale = pu / SIM_CONFIG.WIRELESS_PU;  // overall PU 조정비율 (기본 1.0)
+  const cuScale = cu / SIM_CONFIG.WIRELESS_CU;  // overall CU 조정비율
+  const chPU = {}, chCU = {};
+  W_CH_NO_IOT.forEach(ch => {
+    chPU[ch] = Math.round((W_CH_PU_26[ch]||SIM_CONFIG.WIRELESS_PU) * puScale);
+    chCU[ch] = Math.round((W_CH_CU_26[ch]||SIM_CONFIG.WIRELESS_CU) * cuScale);
+  });
+  // 채널별 상품매출 = channel CAPA × channel PU / 1M (bottom-up)
+  const prodRevByCh = {}, prodCogsByCh = {};
+  const prodRev = Array(12).fill(0);
+  const prodCogs = Array(12).fill(0);
+  W_CH_NO_IOT.forEach(ch => {
+    const mon = capaMon[ch]||Array(12).fill(0);
+    prodRevByCh[ch] = mon.map(c => Math.round(c * chPU[ch] / 1e6));
+    prodCogsByCh[ch] = mon.map(c => Math.round(c * chCU[ch] / 1e6));
+    prodRevByCh[ch].forEach((v,m) => { prodRev[m] += v; });
+    prodCogsByCh[ch].forEach((v,m) => { prodCogs[m] += v; });
+  });
+
+  // 정책수수료: 기존 방식 유지 (overall puPol × CAPA → LRM 소스패턴 배분)
   const hasPolMon=W_UNIT_MON.pol.some((v,i)=>v!==puPol||(MON_MANUAL.pu_mon&&MON_MANUAL.pu_mon.pol[i]!=null));
-  const prodRev=capaTotalMon_noIoT.map((cap,m)=>Math.round(cap*(hasPuMon?W_UNIT_MON.pu[m]:pu)/1000000));
-  const prodCogs=capaTotalMon_noIoT.map((cap,m)=>Math.round(cap*(hasCuMon?W_UNIT_MON.cu[m]:cu)/1000000));
   const polFeeByMon=capaTotalMon_noIoT.map((cap,m)=>Math.round(cap*(hasPolMon?W_UNIT_MON.pol[m]:puPol)/1000000));
-  const prodRevTotal_=prodRev.reduce((a,b)=>a+b,0);
-  const prodCogsTotal_=prodCogs.reduce((a,b)=>a+b,0);
   const polFeeTotal_=polFeeByMon.reduce((a,b)=>a+b,0);
-  // 정책수수료: 월별단가 사용 시 직접 계산, 아니면 LRM 소스패턴 배분
   const polFee=hasPolMon?polFeeByMon:(()=>{
     const raw=W_POL_MON26_SRC.map(v=>v*polFeeTotal_/W_POL_ANN26_SRC);
     const arr=raw.map(v=>Math.floor(v));
@@ -13976,6 +14134,7 @@ function simWireless(){
 
   return{capa,capaMon,capaTotal,capaTotalMon,capaTotalMon_noIoT,active,activeTotal,해지,만기,순증,순증Total,관리수수료,관리수수료Total,mgmtRevAnnual,etc,etcMon,etcTotal,totalMgmtRev,activeChannels,fee,churn,
     prodRev,prodCogs,polFee,prodRevTotal,prodCogsTotal,polFeeTotal,
+    prodRevByCh,prodCogsByCh,chPU,chCU,  // ★ v97: 채널별 bottom-up 데이터
     salesComm,salesPromo,salesCommTotal,salesPromoTotal,
     spBiz,advertising,incentive,meeting};
 }
@@ -26210,7 +26369,7 @@ function loadBMActuals2026(){
   a.lb_rew = leaf(L.reward,     ADJ_labor);
   a.lb_ret = leaf(L.retire,     ADJ_labor);
   a.lb_wel = leaf(L.welfare,    ADJ_labor);
-  a.labor  = sumMon(a.lb_gen,a.lb_sal,a.lb_inc,a.lb_con,a.lb_rew,a.lb_ret,a.lb_wel);
+  a.labor  = sumMon(a.lb_gen,a.lb_sal,a.lb_inc,a.lb_rew,a.lb_ret,a.lb_wel);  // ★ 도급비(lb_con) 제외
 
   // ── 8) 마케팅 세부 → 합산=mkt ────────────────────────────
   a.sc  = leaf(P.sc,  ADJ_sga);
