@@ -7946,7 +7946,7 @@ function _f26TabBtns(activeTab){
   var TABS={pl:'전사 P&L',dist:'유통플랫폼',opex:'기타운영비',wire:'📱 무선 드라이버',labor_infra:'👥 인건비·인프라',etcfee:'📦 기타수수료',narrative:'📝 계획 근거'};
   return Object.entries(TABS).map(function(e){
     var t=e[0],label=e[1];
-    return '<button onclick="window._f27m26View=''+t+'';renderF27Merged26()" style="padding:5px 12px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;'
+    return '<button onclick="window._f27m26View=\''+t+'\';renderF27Merged26()" style="padding:5px 12px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;'
     +(t===activeTab?'background:#111827;color:#fff;border:none':'background:#fff;color:#374151;border:1px solid #dde3ee')+'">'
     +label+'</button>';
   }).join('');
